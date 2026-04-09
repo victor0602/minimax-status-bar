@@ -4,14 +4,8 @@ struct DetailView: View {
     let quotaState: QuotaState
     let onRefresh: () -> Void
 
-    private var grouped: [(ModelCategory, [ModelQuota])] {
-        let grouped = Dictionary(grouping: quotaState.models) { $0.category }
-        return ModelCategory.allCases
-            .compactMap { category in
-                guard let models = grouped[category], !models.isEmpty else { return nil }
-                return (category, models)
-            }
-            .sorted { $0.0.priority < $1.0.priority }
+    private var sortedModels: [ModelQuota] {
+        quotaState.models.sorted { $0.modelName < $1.modelName }
     }
 
     private func relativeTime(_ date: Date) -> String {
@@ -40,7 +34,7 @@ struct DetailView: View {
 
             // ── 可滚动区域（模型列表）──
             ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
 
                     // 无数据状态
                     if !quotaState.hasData && !quotaState.isLoading {
@@ -59,24 +53,12 @@ struct DetailView: View {
                         .padding(.vertical, 8)
                     }
 
-                    // 分组模型列表
-                    ForEach(grouped, id: \.0) { category, models in
-                        Text(category.rawValue)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 8)
-                            .padding(.bottom, 2)
-
-                        ForEach(models, id: \.modelName) { model in
-                            ModelRowView(model: model)
-                            if model.modelName != models.last?.modelName {
-                                Divider().padding(.leading, 12)
-                            }
+                    // 模型列表
+                    ForEach(sortedModels, id: \.modelName) { model in
+                        ModelRowView(model: model)
+                        if model.modelName != sortedModels.last?.modelName {
+                            Divider().padding(.leading, 12)
                         }
-
-                        Divider()
-                            .padding(.top, 4)
                     }
                 }
             }
@@ -119,29 +101,32 @@ struct ModelRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(model.displayName)
-                .font(.subheadline)
-                .fontWeight(.medium)
-
             HStack {
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.gray.opacity(0.2))
-                            .frame(height: 6)
-
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(progressColor(for: model.remainingPercent))
-                            .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 6)
-                    }
-                }
-                .frame(height: 6)
-
+                Text(model.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Spacer()
                 Text("\(model.remainingPercent)%")
                     .font(.caption)
                     .foregroundColor(progressColor(for: model.remainingPercent))
-                    .frame(width: 40, alignment: .trailing)
             }
+
+            Text(model.modelName)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 6)
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(progressColor(for: model.remainingPercent))
+                        .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 6)
+                }
+            }
+            .frame(height: 6)
 
             HStack {
                 Text("剩余 \(formatNumber(model.remainingCount)) / \(formatNumber(model.totalCount))")
@@ -161,6 +146,7 @@ struct ModelRowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 
     private func progressColor(for percent: Int) -> Color {

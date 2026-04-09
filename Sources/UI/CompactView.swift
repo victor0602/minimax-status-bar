@@ -47,7 +47,7 @@ struct CompactView: View {
                 Divider()
 
                 HStack {
-                    Text("剩余: \(formatNumber(model.remainingCount))")
+                    Text("已用: \(formatNumber(model.usageCount))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()

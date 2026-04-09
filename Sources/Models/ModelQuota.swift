@@ -112,20 +112,22 @@ struct ModelQuota {
     let updatedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
-        let remaining = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
+        // API 字段 usage_count 实际表示剩余次数（而非已用）
+        let remaining = raw.currentIntervalUsageCount
+        let used = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
         let usedPct = raw.currentIntervalTotalCount > 0
-            ? raw.currentIntervalUsageCount * 100 / raw.currentIntervalTotalCount
+            ? used * 100 / raw.currentIntervalTotalCount
             : 0
 
         return ModelQuota(
             modelName: raw.modelName,
             totalCount: raw.currentIntervalTotalCount,
-            usageCount: raw.currentIntervalUsageCount,
+            usageCount: used,
             remainingCount: remaining,
             usedPercent: usedPct,
             weeklyTotal: raw.currentWeeklyTotalCount,
-            weeklyUsage: raw.currentWeeklyUsageCount,
-            weeklyRemaining: raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount,
+            weeklyUsage: raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount,
+            weeklyRemaining: raw.currentWeeklyUsageCount,
             remainsTimeMs: raw.remainsTime,
             weeklyStartTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyStartTime) / 1000),
             weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000),
@@ -150,13 +152,21 @@ struct ModelQuota {
         case let n where n.contains("minimax-m"):
             return "MiniMax-M"
         case let n where n.contains("speech-hd"):
-            return "Speech HD"
+            return "Text to Speech HD"
         case let n where n.contains("hailuo-2.3-fast"):
             return "Hailuo-2.3-Fast"
         case let n where n.contains("hailuo-2.3"):
             return "Hailuo-2.3"
+        case let n where n.contains("music-2.5"):
+            return "Music 2.5"
+        case let n where n.contains("music-2.6"):
+            return "Music 2.6"
+        case let n where n.contains("music-cover"):
+            return "Music Cover"
         case let n where n.contains("music"):
             return "Music"
+        case let n where n.contains("image-01"):
+            return "Image 01"
         case let n where n.contains("image"):
             return "Image"
         default:
