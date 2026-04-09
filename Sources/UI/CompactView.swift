@@ -1,25 +1,27 @@
 import SwiftUI
 
 struct CompactView: View {
-    let usage: TokenUsage?
-    let stats: APIStats
-    let isLoading: Bool
-    let lastError: String?
+    @ObservedObject var quotaState: QuotaState
+
+    let onRefresh: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if isLoading {
+            if quotaState.isLoading {
                 HStack {
                     ProgressView()
                     Text("刷新中...")
                 }
-            } else if let error = lastError {
+            } else if let error = quotaState.lastError {
                 Text("错误: \(error)").foregroundColor(.red)
-            } else if let usage = usage {
+            } else if let model = quotaState.primaryModel {
                 HStack {
-                    Text("Token 使用: \(String(format: "%.0f", usage.usedPercent))%")
+                    Text(model.displayName)
                         .font(.headline)
                     Spacer()
+                    Text("\(model.remainingPercent)%")
+                        .font(.headline)
+                        .foregroundColor(progressColor(for: model.remainingPercent))
                 }
 
                 GeometryReader { geometry in
@@ -29,14 +31,14 @@ struct CompactView: View {
                             .frame(height: 8)
 
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(progressColor(for: usage.usedPercent))
-                            .frame(width: geometry.size.width * CGFloat(usage.usedPercent / 100), height: 8)
+                            .fill(progressColor(for: model.remainingPercent))
+                            .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 8)
                     }
                 }
                 .frame(height: 8)
 
                 HStack {
-                    Text("\(formatNumber(usage.usedTokens))/\(formatNumber(usage.totalTokens))")
+                    Text("剩余 \(formatNumber(model.remainingCount)) / \(formatNumber(model.totalCount)) 次")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -45,11 +47,14 @@ struct CompactView: View {
                 Divider()
 
                 HStack {
-                    Text("调用次数: \(formatNumber(stats.totalCalls))")
+                    Text("剩余: \(formatNumber(model.remainingCount))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     Spacer()
-                    Text("错误率: \(String(format: "%.1f", stats.errorRate * 100))%")
+                    Text("重置: \(model.remainsTimeFormatted)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                .font(.caption)
             } else {
                 Text("暂无数据")
                     .foregroundColor(.secondary)
@@ -58,9 +63,9 @@ struct CompactView: View {
         .padding()
     }
 
-    private func progressColor(for percent: Double) -> Color {
-        if percent < 70 { return .green }
-        if percent < 90 { return .yellow }
+    private func progressColor(for percent: Int) -> Color {
+        if percent > 30 { return .green }
+        if percent > 10 { return .yellow }
         return .red
     }
 

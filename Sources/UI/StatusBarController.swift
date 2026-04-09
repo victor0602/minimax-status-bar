@@ -3,21 +3,20 @@ import SwiftUI
 
 class StatusBarController {
     private var statusItem: NSStatusItem
-    private var appState: AppState
-    private var apiService: MiniMaxAPIService
-    private var persistenceService: DataPersistenceService
+    private let quotaState = QuotaState()
+    private var apiService: MiniMaxAPIService!
+    private var persistenceService: DataPersistenceService!
     private var timer: Timer?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        appState = AppState()
         persistenceService = DataPersistenceService()
 
         let apiKey = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"] ?? ""
         apiService = MiniMaxAPIService(apiKey: apiKey)
 
         setupStatusBarButton()
-        setupMenu()
+        rebuildMenu()
         startPolling()
     }
 
@@ -28,10 +27,10 @@ class StatusBarController {
         }
     }
 
-    private func setupMenu() {
+    private func rebuildMenu() {
         let menu = NSMenu()
 
-        let contentView = MenuContentView(appState: appState, onRefresh: { [weak self] in
+        let contentView = MenuContentView(quotaState: quotaState, onRefresh: { [weak self] in
             self?.refresh()
         })
 
@@ -56,23 +55,50 @@ class StatusBarController {
     }
 
     private func refresh() {
-        appState.isLoading = true
+        quotaState.isLoading = true
 
         Task {
             do {
-                let usage = try await apiService.fetchTokenUsage()
+                let models = try await self.apiService.fetchQuota()
                 await MainActor.run {
-                    appState.tokenUsage = usage
-                    appState.lastError = nil
-                    appState.isLoading = false
+                    self.quotaState.models = models
+                    self.quotaState.lastUpdatedAt = Date()
+                    self.quotaState.lastError = nil
+                    self.quotaState.isLoading = false
+                    self.updateStatusBarColor()
+                    self.rebuildMenu()
                 }
-                persistenceService.saveUsageRecord(usage: usage, stats: appState.apiStats)
+                self.persistenceService.saveHistory(models)
             } catch {
                 await MainActor.run {
-                    appState.lastError = error.localizedDescription
-                    appState.isLoading = false
+                    self.quotaState.lastError = error.localizedDescription
+                    self.quotaState.isLoading = false
+                    self.updateStatusBarColor()
                 }
             }
+        }
+    }
+
+    private func updateStatusBarColor() {
+        guard let button = statusItem.button else { return }
+
+        if quotaState.lastError != nil {
+            button.contentTintColor = .systemRed
+            return
+        }
+
+        guard let primary = quotaState.primaryModel else {
+            button.contentTintColor = .systemGray
+            return
+        }
+
+        let usedPercent = primary.usedPercent
+        if usedPercent < 70 {
+            button.contentTintColor = .systemGreen
+        } else if usedPercent < 90 {
+            button.contentTintColor = .systemYellow
+        } else {
+            button.contentTintColor = .systemRed
         }
     }
 

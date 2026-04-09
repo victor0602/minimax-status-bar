@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>MiniMax Status Bar</string>
 	<key>CFBundleExecutable</key>
-	<string>minimax-status-bar</string>
+	<string>MiniMax Status Bar</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.openclaw.minimax-status-bar</string>
 	<key>CFBundleInfoDictionaryVersion</key>

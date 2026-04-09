@@ -1,45 +1,172 @@
 import SwiftUI
 
 struct DetailView: View {
-    let usage: TokenUsage?
-    let stats: APIStats
-    @Binding var isExpanded: Bool
+    let quotaState: QuotaState
+    let onRefresh: () -> Void
+
+    private var grouped: [(ModelCategory, [ModelQuota])] {
+        let grouped = Dictionary(grouping: quotaState.models) { $0.category }
+        return ModelCategory.allCases
+            .compactMap { category in
+                guard let models = grouped[category], !models.isEmpty else { return nil }
+                return (category, models)
+            }
+            .sorted { $0.0.priority < $1.0.priority }
+    }
+
+    private func relativeTime(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button(action: { isExpanded.toggle() }) {
-                HStack {
-                    Text("详细信息")
-                        .font(.headline)
-                    Spacer()
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+        VStack(spacing: 0) {
+
+            // ── 顶部标题栏（固定不滚动）──
+            HStack {
+                Text("MiniMax Status")
+                    .font(.headline)
+                Spacer()
+                if quotaState.isLoading {
+                    ProgressView().scaleEffect(0.7)
                 }
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
 
-            if isExpanded, let usage = usage {
-                Divider()
+            Divider()
 
-                Group {
-                    LabeledContent("已用 Token", value: formatNumber(usage.usedTokens))
-                    LabeledContent("剩余 Token", value: formatNumber(usage.remainingTokens))
-                    LabeledContent("总 Token", value: formatNumber(usage.totalTokens))
+            // ── 可滚动区域（模型列表）──
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 0) {
+
+                    // 无数据状态
+                    if !quotaState.hasData && !quotaState.isLoading {
+                        Group {
+                            if let err = quotaState.lastError {
+                                Text("错误：\(err)")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                            } else {
+                                Text("暂无数据，请点击刷新")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                    }
+
+                    // 分组模型列表
+                    ForEach(grouped, id: \.0) { category, models in
+                        Text(category.rawValue)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 12)
+                            .padding(.top, 8)
+                            .padding(.bottom, 2)
+
+                        ForEach(models, id: \.modelName) { model in
+                            ModelRowView(model: model)
+                            if model.modelName != models.last?.modelName {
+                                Divider().padding(.leading, 12)
+                            }
+                        }
+
+                        Divider()
+                            .padding(.top, 4)
+                    }
                 }
-                .font(.caption)
+            }
+            .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
 
-                Divider()
+            Divider()
 
-                Group {
-                    LabeledContent("总调用", value: "\(stats.totalCalls)")
-                    LabeledContent("本分钟", value: "\(stats.callsThisMinute)")
-                    LabeledContent("成功率", value: String(format: "%.1f%%", (1 - stats.errorRate) * 100))
-                    LabeledContent("错误率", value: String(format: "%.1f%%", stats.errorRate * 100))
-                    LabeledContent("平均响应", value: String(format: "%.0fms", stats.avgResponseTime))
+            // ── 底部栏（固定不滚动）──
+            HStack {
+                Button(action: onRefresh) {
+                    Label("刷新", systemImage: "arrow.clockwise")
+                        .font(.caption)
                 }
-                .font(.caption)
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                if let updated = quotaState.lastUpdatedAt {
+                    Text("最后更新：\(relativeTime(updated))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            Button("Quit") { NSApplication.shared.terminate(nil) }
+                .keyboardShortcut("q")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+        }
+        .frame(width: 300)
+    }
+}
+
+struct ModelRowView: View {
+    let model: ModelQuota
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(model.displayName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+
+            HStack {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 6)
+
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(progressColor(for: model.remainingPercent))
+                            .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 6)
+                    }
+                }
+                .frame(height: 6)
+
+                Text("\(model.remainingPercent)%")
+                    .font(.caption)
+                    .foregroundColor(progressColor(for: model.remainingPercent))
+                    .frame(width: 40, alignment: .trailing)
+            }
+
+            HStack {
+                Text("剩余 \(formatNumber(model.remainingCount)) / \(formatNumber(model.totalCount))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("本周: \(formatNumber(model.weeklyRemaining)) / \(formatNumber(model.weeklyTotal))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Text("重置: \(model.remainsTimeFormatted)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
         }
-        .padding()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
+
+    private func progressColor(for percent: Int) -> Color {
+        if percent > 30 { return .green }
+        if percent > 10 { return .yellow }
+        return .red
     }
 
     private func formatNumber(_ num: Int) -> String {

@@ -6,12 +6,13 @@ class DataPersistenceService {
 
     private let usageHistory = Table("usage_history")
     private let id = SQLite.Expression<Int64>("id")
-    private let date = SQLite.Expression<String>("date")
-    private let usedTokens = SQLite.Expression<Int64>("used_tokens")
-    private let totalTokens = SQLite.Expression<Int64>("total_tokens")
-    private let totalCalls = SQLite.Expression<Int64>("total_calls")
-    private let errorRateCol = SQLite.Expression<Double>("error_rate")
-    private let avgResponseTime = SQLite.Expression<Double>("avg_response_time")
+    private let recordedAt = SQLite.Expression<String>("recorded_at")
+    private let modelName = SQLite.Expression<String>("model_name")
+    private let totalCount = SQLite.Expression<Int64>("total_count")
+    private let usageCount = SQLite.Expression<Int64>("usage_count")
+    private let remainingCount = SQLite.Expression<Int64>("remaining_count")
+    private let weeklyTotal = SQLite.Expression<Int64>("weekly_total")
+    private let weeklyUsage = SQLite.Expression<Int64>("weekly_usage")
 
     init() {
         setupDatabase()
@@ -37,48 +38,48 @@ class DataPersistenceService {
     private func createTables() throws {
         try db?.run(usageHistory.create(ifNotExists: true) { t in
             t.column(id, primaryKey: .autoincrement)
-            t.column(date)
-            t.column(usedTokens)
-            t.column(totalTokens)
-            t.column(totalCalls)
-            t.column(errorRateCol)
-            t.column(avgResponseTime)
+            t.column(recordedAt)
+            t.column(modelName)
+            t.column(totalCount)
+            t.column(usageCount)
+            t.column(remainingCount)
+            t.column(weeklyTotal)
+            t.column(weeklyUsage)
         })
     }
 
-    func saveUsageRecord(usage: TokenUsage, stats: APIStats) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dateString = formatter.string(from: Date())
+    func saveHistory(_ models: [ModelQuota]) {
+        let dateStr = ISO8601DateFormatter().string(from: Date())
 
         do {
-            let insert = usageHistory.insert(
-                date <- dateString,
-                usedTokens <- Int64(usage.usedTokens),
-                totalTokens <- Int64(usage.totalTokens),
-                totalCalls <- Int64(stats.totalCalls),
-                errorRateCol <- stats.errorRate,
-                avgResponseTime <- stats.avgResponseTime
-            )
-            try db?.run(insert)
+            for model in models {
+                let insert = usageHistory.insert(
+                    recordedAt <- dateStr,
+                    modelName <- model.modelName,
+                    totalCount <- Int64(model.totalCount),
+                    usageCount <- Int64(model.usageCount),
+                    remainingCount <- Int64(model.remainingCount),
+                    weeklyTotal <- Int64(model.weeklyTotal),
+                    weeklyUsage <- Int64(model.weeklyUsage)
+                )
+                try db?.run(insert)
+            }
+            cleanupOldRecords()
         } catch {
             print("Insert error: \(error)")
         }
     }
 
-    func getTodayUsage() -> (used: Int, total: Int)? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dateString = formatter.string(from: Date())
+    private func cleanupOldRecords() {
+        let calendar = Calendar.current
+        guard let cutoffDate = calendar.date(byAdding: .day, value: -30, to: Date()) else { return }
+        let cutoffStr = ISO8601DateFormatter().string(from: cutoffDate)
 
         do {
-            let query = usageHistory.filter(date == dateString).order(id.desc).limit(1)
-            if let row = try db?.pluck(query) {
-                return (used: Int(row[usedTokens]), total: Int(row[totalTokens]))
-            }
+            let oldRecords = usageHistory.filter(recordedAt < cutoffStr)
+            try db?.run(oldRecords.delete())
         } catch {
-            print("Query error: \(error)")
+            print("Cleanup error: \(error)")
         }
-        return nil
     }
 }

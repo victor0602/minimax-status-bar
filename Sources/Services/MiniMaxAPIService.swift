@@ -1,36 +1,23 @@
 import Foundation
 
-struct MiniMaxTokenResponse: Codable {
-    let usagePercent: Double
-    let modelRemains: ModelRemains
-
-    enum CodingKeys: String, CodingKey {
-        case usagePercent = "usage_percent"
-        case modelRemains = "model_remains"
-    }
-}
-
-struct ModelRemains: Codable {
-    let chat: Int?
-}
-
 enum MiniMaxAPIError: Error {
     case invalidURL
     case networkError(Error)
-    case decodingError(Error)
+    case invalidResponse
     case serverError(Int)
     case missingAPIKey
+    case apiError(String)
 }
 
 class MiniMaxAPIService {
     private let apiKey: String
-    private let baseURL = "https://www.minimax.io/v1/api/openplatform/coding_plan/remains"
+    private let baseURL = "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains"
 
     init(apiKey: String) {
         self.apiKey = apiKey
     }
 
-    func fetchTokenUsage() async throws -> TokenUsage {
+    func fetchQuota() async throws -> [ModelQuota] {
         guard !apiKey.isEmpty else {
             throw MiniMaxAPIError.missingAPIKey
         }
@@ -54,22 +41,19 @@ class MiniMaxAPIService {
             throw MiniMaxAPIError.serverError(httpResponse.statusCode)
         }
 
-        let decoder = JSONDecoder()
-        let apiResponse = try decoder.decode(MiniMaxTokenResponse.self, from: data)
+        // 调试：打印原始响应
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("🔍 Raw API response: \(jsonString)")
+            let path = "/tmp/minimax_raw_response.json"
+            try? jsonString.write(toFile: path, atomically: true, encoding: .utf8)
+        }
 
-        // ⚠️ API BUG WORKAROUND: usage_percent means remaining, not used
-        // TODO: revert when MiniMax fixes the API response
-        let usedPercent = 100 - apiResponse.usagePercent
-        let remainingTokens = apiResponse.modelRemains.chat ?? 0
-        let totalTokens = apiResponse.usagePercent > 0 ? Int(Double(remainingTokens) / apiResponse.usagePercent * 100) : 0
-        let usedTokens = totalTokens - remainingTokens
+        let decoded = try JSONDecoder().decode(QuotaResponse.self, from: data)
 
-        return TokenUsage(
-            totalTokens: totalTokens,
-            usedTokens: max(0, usedTokens),
-            remainingTokens: remainingTokens,
-            usagePercent: apiResponse.usagePercent,
-            updatedAt: Date()
-        )
+        if let baseResp = decoded.baseResp, baseResp.statusCode != 0 {
+            throw MiniMaxAPIError.apiError(baseResp.statusMsg)
+        }
+
+        return decoded.modelRemains.map { ModelQuota.from(raw: $0) }
     }
 }

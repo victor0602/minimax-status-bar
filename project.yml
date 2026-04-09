@@ -26,8 +26,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.openclaw.minimax-status-bar
         LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         COMBINE_HIDPI_IMAGES: YES
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: "NO"
     dependencies:
       - package: SQLite.swift
+        product: SQLite
     info:
       path: Sources/App/Info.plist
       properties:
@@ -37,7 +40,7 @@ targets:
         CFBundleVersion: "1"
         CFBundleShortVersionString: "1.0.0"
         CFBundlePackageType: APPL
-        CFBundleExecutable: minimax-status-bar
+        CFBundleExecutable: "MiniMax Status Bar"
         LSMinimumSystemVersion: "13.0"
         LSUIElement: true
         NSHighResolutionCapable: true
