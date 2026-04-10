@@ -136,14 +136,18 @@ struct ModelQuota {
     }
 
     var remainsTimeFormatted: String {
-        let hours = remainsTimeMs / 3600000
-        let minutes = (remainsTimeMs % 3600000) / 60000
         if remainsTimeMs <= 0 {
             return "即将重置"
-        } else if hours > 0 {
+        }
+        let hours = remainsTimeMs / 3600000
+        let minutes = (remainsTimeMs % 3600000) / 60000
+        let seconds = (remainsTimeMs % 60000) / 1000
+        if hours > 0 {
             return "\(hours)h \(minutes)m"
-        } else {
+        } else if minutes > 0 {
             return "\(minutes)m"
+        } else {
+            return "\(seconds)s"
         }
     }
 

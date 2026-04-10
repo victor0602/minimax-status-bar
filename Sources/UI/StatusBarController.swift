@@ -115,11 +115,21 @@ class StatusBarController: @unchecked Sendable {
                 }
             } catch {
                 await MainActor.run {
-                    quotaState.lastError = error.localizedDescription
+                    quotaState.lastError = self.sanitizedError(error)
                     self.updateStatusBarColor()
                 }
             }
         }
+    }
+
+    private func sanitizedError(_ error: Error) -> String {
+        let msg = error.localizedDescription
+        // Strip IP addresses which may appear in server error messages
+        return msg.replacingOccurrences(
+            of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#,
+            with: "[IP]",
+            options: .regularExpression
+        )
     }
 
     private func updateStatusBarColor() {

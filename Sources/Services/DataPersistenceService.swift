@@ -3,6 +3,7 @@ import SQLite
 
 class DataPersistenceService: @unchecked Sendable {
     private var db: Connection?
+    private let writeQueue = DispatchQueue(label: "com.openclaw.minimax-status-bar.db")
 
     private let usageHistory = Table("usage_history")
     private let id = SQLite.Expression<Int64>("id")
@@ -50,27 +51,31 @@ class DataPersistenceService: @unchecked Sendable {
 
     func saveHistory(_ models: [ModelQuota]) {
         let dateStr = ISO8601DateFormatter().string(from: Date())
+        let db = self.db
 
-        do {
-            for model in models {
-                let insert = usageHistory.insert(
-                    recordedAt <- dateStr,
-                    modelName <- model.modelName,
-                    totalCount <- Int64(model.totalCount),
-                    usageCount <- Int64(model.usageCount),
-                    remainingCount <- Int64(model.remainingCount),
-                    weeklyTotal <- Int64(model.weeklyTotal),
-                    weeklyUsage <- Int64(model.weeklyUsage)
-                )
-                try db?.run(insert)
+        writeQueue.async {
+            guard let db = db else { return }
+            do {
+                for model in models {
+                    let insert = self.usageHistory.insert(
+                        self.recordedAt <- dateStr,
+                        self.modelName <- model.modelName,
+                        self.totalCount <- Int64(model.totalCount),
+                        self.usageCount <- Int64(model.usageCount),
+                        self.remainingCount <- Int64(model.remainingCount),
+                        self.weeklyTotal <- Int64(model.weeklyTotal),
+                        self.weeklyUsage <- Int64(model.weeklyUsage)
+                    )
+                    try db.run(insert)
+                }
+                self.cleanupOldRecords(db: db)
+            } catch {
+                print("Insert error: \(error)")
             }
-            cleanupOldRecords()
-        } catch {
-            print("Insert error: \(error)")
         }
     }
 
-    private func cleanupOldRecords() {
+    private func cleanupOldRecords(db: Connection?) {
         let calendar = Calendar.current
         guard let cutoffDate = calendar.date(byAdding: .day, value: -30, to: Date()) else { return }
         let cutoffStr = ISO8601DateFormatter().string(from: cutoffDate)

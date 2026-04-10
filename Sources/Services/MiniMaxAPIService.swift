@@ -4,6 +4,7 @@ enum MiniMaxAPIError: Error {
     case invalidURL
     case networkError(Error)
     case invalidResponse
+    case decodingError
     case serverError(Int)
     case missingAPIKey
     case apiError(String)
@@ -41,7 +42,12 @@ class MiniMaxAPIService: @unchecked Sendable {
             throw MiniMaxAPIError.serverError(httpResponse.statusCode)
         }
 
-        let decoded = try JSONDecoder().decode(QuotaResponse.self, from: data)
+        let decoded: QuotaResponse
+        do {
+            decoded = try JSONDecoder().decode(QuotaResponse.self, from: data)
+        } catch {
+            throw MiniMaxAPIError.decodingError
+        }
 
         if let baseResp = decoded.baseResp, baseResp.statusCode != 0 {
             throw MiniMaxAPIError.apiError(baseResp.statusMsg)
