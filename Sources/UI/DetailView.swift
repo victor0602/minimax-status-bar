@@ -17,6 +17,16 @@ struct DetailView: View {
 
     @State private var now: Date = Date()
     @State private var timer: Timer?
+    @State private var isExiting = false
+
+    private func triggerExitAnimation() {
+        withAnimation(.spring(duration: 0.35, bounce: 0.0)) {
+            isExiting = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
+            NSApp.terminate(nil)
+        }
+    }
 
     private var grouped: [(ModelCategory, [ModelQuota])] {
         let grouped = Dictionary(grouping: quotaState.models) { $0.category }
@@ -42,6 +52,7 @@ struct DetailView: View {
         ZStack {
             // 内容层
             VStack(spacing: 0) {
+
 
                 // ── 标题栏 ──
                 VStack(alignment: .leading, spacing: 2) {
@@ -160,7 +171,7 @@ struct DetailView: View {
 
                 // ── 底部操作栏 ──
                 HStack(spacing: 8) {
-                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                    Button(action: { triggerExitAnimation() }) {
                         HStack(spacing: 4) {
                             Image(systemName: "power")
                                 .font(.system(size: 10))
@@ -208,6 +219,9 @@ struct DetailView: View {
             }
         }
         .frame(width: 320)
+        .scaleEffect(isExiting ? 0.85 : 1.0)
+        .opacity(isExiting ? 0.0 : 1.0)
+        .blur(radius: isExiting ? 8 : 0)
         .if(supportsLiquidGlass) { view in
             view.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
         }

@@ -91,24 +91,31 @@ class StatusBarController: @unchecked Sendable {
         quotaState.isLoading = true
         quotaState.lastUpdatedAt = Date()
 
-        guard let api = apiService else { return }
+        guard let api = apiService else {
+            quotaState.isLoading = false
+            return
+        }
         let persistence = persistenceService
 
         Task { [api, persistence, quotaState] in
+            defer {
+                Task { @MainActor in
+                    quotaState.isLoading = false
+                }
+            }
+
             do {
                 let models = try await api.fetchQuota()
                 await MainActor.run {
                     quotaState.models = models
                     quotaState.lastUpdatedAt = Date()
                     quotaState.lastError = nil
-                    quotaState.isLoading = false
                     persistence?.saveHistory(models)
                     self.updateStatusBarColor()
                 }
             } catch {
                 await MainActor.run {
                     quotaState.lastError = error.localizedDescription
-                    quotaState.isLoading = false
                     self.updateStatusBarColor()
                 }
             }
