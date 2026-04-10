@@ -14,10 +14,11 @@ final class UpdateState: ObservableObject {
     @Published var isChecking: Bool = false
     @Published var isDownloading: Bool = false
     @Published var downloadProgress: Double = 0.0
+    @Published var installPhase: String = ""
     @Published var lastError: String?
     @Published var lastCheckedAt: Date?
 
-    private var downloadTask: URLSessionDownloadTask?
+    private var progressTimer: Timer?
 
     private init() {}
 
@@ -35,63 +36,133 @@ final class UpdateState: ObservableObject {
     func downloadAndInstall(_ release: ReleaseInfo) {
         isDownloading = true
         downloadProgress = 0.0
+        installPhase = "下载中"
         lastError = nil
 
-        let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent("MiniMaxStatusBar.dmg")
-
-        try? FileManager.default.removeItem(at: destinationURL)
-
         Task {
-            var request = URLRequest(url: release.downloadURL)
-            request.timeoutInterval = 300
+            await performFullUpdate(release: release)
+        }
+    }
 
-            do {
-                let (tempURL, response) = try await URLSession.shared.download(for: request)
+    @MainActor
+    private func performFullUpdate(release: ReleaseInfo) async {
+        let tmpDMG = FileManager.default.temporaryDirectory.appendingPathComponent("MiniMaxStatusBarUpdate.dmg")
+        try? FileManager.default.removeItem(at: tmpDMG)
 
-                guard let httpResponse = response as? HTTPURLResponse,
-                      (200...299).contains(httpResponse.statusCode) else {
-                    await MainActor.run {
-                        self.lastError = "下载失败，请检查网络"
-                        self.isDownloading = false
-                    }
+        do {
+            try await downloadFile(from: release.downloadURL, to: tmpDMG)
+        } catch {
+            self.lastError = "下载失败: \(error.localizedDescription)"
+            self.isDownloading = false
+            return
+        }
+
+        self.installPhase = "安装中"
+
+        let mountPoint = "/tmp/MiniMaxStatusBarMount"
+        try? FileManager.default.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
+
+        let mountResult = shell("hdiutil attach '\(tmpDMG.path)' -mountpoint '\(mountPoint)' -nobrowse -quiet")
+        guard mountResult == 0 else {
+            self.lastError = "挂载更新包失败"
+            self.isDownloading = false
+            return
+        }
+
+        let mountedApp = "\(mountPoint)/MiniMax Status Bar.app"
+        let targetApp = Bundle.main.bundlePath
+
+        var copyResult = shell("cp -Rf '\(mountedApp)' '\(targetApp)'")
+
+        shell("hdiutil detach '\(mountPoint)' -quiet")
+        try? FileManager.default.removeItem(at: tmpDMG)
+
+        if copyResult != 0 {
+            let script = """
+                do shell script "cp -Rf '\(mountedApp)' '\(targetApp)'" with administrator privileges
+            """
+            var errorDict: NSDictionary?
+            NSAppleScript(source: script)?.executeAndReturnError(&errorDict)
+            if errorDict != nil {
+                self.lastError = "安装失败，请检查权限"
+                self.isDownloading = false
+                return
+            }
+            copyResult = 0
+        }
+
+        guard copyResult == 0 else {
+            self.lastError = "复制文件失败"
+            self.isDownloading = false
+            return
+        }
+
+        self.installPhase = "重启中"
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/MiniMax Status Bar.app"))
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
+    private func downloadFile(from url: URL, to destination: URL) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config)
+
+            let task = session.downloadTask(with: url) { [weak self] tempURL, response, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
                     return
                 }
-
-                try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-
-                await MainActor.run {
-                    self.downloadProgress = 1.0
-                    self.isDownloading = false
+                guard let tempURL = tempURL else {
+                    continuation.resume(throwing: NSError(domain: "UpdateError", code: -1))
+                    return
                 }
-
-                await MainActor.run {
-                    let alert = NSAlert()
-                    alert.messageText = "更新已下载"
-                    alert.informativeText = "请将 MiniMax Status Bar 拖入 Applications 文件夹完成更新，然后重启 app。"
-                    alert.alertStyle = .informational
-                    alert.addButton(withTitle: "确定")
-                    alert.runModal()
-
-                    NSWorkspace.shared.open(destinationURL)
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        NSApplication.shared.terminate(nil)
-                    }
-                }
-
-            } catch {
-                await MainActor.run {
-                    self.lastError = "下载失败: \(error.localizedDescription)"
-                    self.isDownloading = false
+                do {
+                    try? FileManager.default.removeItem(at: destination)
+                    try FileManager.default.copyItem(at: tempURL, to: destination)
+                    continuation.resume()
+                } catch {
+                    continuation.resume(throwing: error)
                 }
             }
+
+            // Poll progress every 0.1s
+            Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak task] timer in
+                guard let self = self, self.isDownloading, let task = task else {
+                    timer.invalidate()
+                    return
+                }
+                let total = task.countOfBytesExpectedToReceive
+                if total > 0 {
+                    let received = Double(task.countOfBytesReceived)
+                    DispatchQueue.main.async {
+                        self.downloadProgress = received / Double(total)
+                    }
+                }
+                if task.state == .completed || task.state == .canceling {
+                    timer.invalidate()
+                }
+            }
+
+            task.resume()
         }
     }
 
     func cancelDownload() {
-        downloadTask?.cancel()
-        downloadTask = nil
         isDownloading = false
         downloadProgress = 0.0
+        installPhase = ""
+    }
+
+    @discardableResult
+    private func shell(_ command: String) -> Int32 {
+        let task = Process()
+        task.launchPath = "/bin/zsh"
+        task.arguments = ["-c", command]
+        task.launch()
+        task.waitUntilExit()
+        return task.terminationStatus
     }
 }
