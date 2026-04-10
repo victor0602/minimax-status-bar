@@ -70,10 +70,6 @@ class StatusBarController: @unchecked Sendable {
 
     private func closePopover() {
         popover?.performClose(nil)
-        stopEventMonitor()
-    }
-
-    private func stopEventMonitor() {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
