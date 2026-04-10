@@ -1,5 +1,16 @@
 import SwiftUI
 
+// MARK: - macOS Version Detection
+
+private var supportsLiquidGlass: Bool {
+    if #available(macOS 26.0, *) {
+        return true
+    }
+    return false
+}
+
+// MARK: - DetailView
+
 struct DetailView: View {
     let quotaState: QuotaState
     let onRefresh: () -> Void
@@ -56,7 +67,13 @@ struct DetailView: View {
                                     .padding(7)
                             }
                             .buttonStyle(.plain)
-                            .glassEffect(.regular.interactive())
+                            .if(supportsLiquidGlass) { view in
+                                view.glassEffect(.regular.interactive())
+                            }
+                            .if(!supportsLiquidGlass) { view in
+                                view.background(Color.primary.opacity(0.1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
                             .keyboardShortcut("r", modifiers: .command)
                             .help("刷新数据")
                         }
@@ -123,7 +140,12 @@ struct DetailView: View {
                                     }
                                 }
                             }
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            .if(supportsLiquidGlass) { view in
+                                view.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .if(!supportsLiquidGlass) { view in
+                                view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+                            }
                             .padding(.horizontal, 8)
                         }
                     }
@@ -138,38 +160,48 @@ struct DetailView: View {
                     .opacity(0.5)
 
                 // ── 底部操作栏 ──
-                GlassEffectContainer {
-                    HStack(spacing: 8) {
-                        Button(action: { NSApplication.shared.terminate(nil) }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "power")
-                                    .font(.system(size: 10))
-                                Text("退出")
-                                    .font(.system(size: 11))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                HStack(spacing: 8) {
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "power")
+                                .font(.system(size: 10))
+                            Text("退出")
+                                .font(.system(size: 11))
                         }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive())
-                        .keyboardShortcut("q", modifiers: .command)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .if(supportsLiquidGlass) { view in
+                        view.glassEffect(.regular.interactive())
+                    }
+                    .if(!supportsLiquidGlass) { view in
+                        view.background(Color.primary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .keyboardShortcut("q", modifiers: .command)
 
-                        Button(action: {
-                            if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }) {
-                            HStack(spacing: 3) {
-                                Text("控制台")
-                                    .font(.system(size: 11))
-                                Image(systemName: "arrow.up.right.square")
-                                    .font(.system(size: 9))
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                    Button(action: {
+                        if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
+                            NSWorkspace.shared.open(url)
                         }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive())
+                    }) {
+                        HStack(spacing: 3) {
+                            Text("控制台")
+                                .font(.system(size: 11))
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 9))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .if(supportsLiquidGlass) { view in
+                        view.glassEffect(.regular.interactive())
+                    }
+                    .if(!supportsLiquidGlass) { view in
+                        view.background(Color.primary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
                 }
                 .padding(.horizontal, 14)
@@ -177,7 +209,17 @@ struct DetailView: View {
             }
         }
         .frame(width: 320)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+        .if(supportsLiquidGlass) { view in
+            view.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .if(!supportsLiquidGlass) { view in
+            view.background(Color(nsColor: .windowBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+        )
         .onAppear {
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 now = Date()
@@ -188,6 +230,21 @@ struct DetailView: View {
         }
     }
 }
+
+// MARK: - View Extension for Conditional Modifier
+
+extension View {
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - ModelRowView
 
 struct ModelRowView: View {
     let model: ModelQuota

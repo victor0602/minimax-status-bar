@@ -4,9 +4,11 @@ A macOS menu bar app for monitoring MiniMax API token usage in real-time.
 
 ## Requirements
 
-- **macOS 26.0+** (required for Liquid Glass design)
-  - This app uses macOS 26's native Liquid Glass and glassEffect APIs
-  - Minimum deployment target is macOS 26.0
+- **macOS 13.0+** with fallback design
+- **macOS 26.0+** for Liquid Glass design
+  - When running on macOS 26+, the app uses the native Liquid Glass visual effect
+  - On older macOS versions, a standard translucent design is used
+  - All functionality remains the same across versions
 
 ## Features
 
