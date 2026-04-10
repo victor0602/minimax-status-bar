@@ -103,11 +103,13 @@ class StatusBarController: @unchecked Sendable {
                     quotaState.lastError = nil
                     quotaState.isLoading = false
                     persistence?.saveHistory(models)
+                    self.updateStatusBarColor()
                 }
             } catch {
                 await MainActor.run {
                     quotaState.lastError = error.localizedDescription
                     quotaState.isLoading = false
+                    self.updateStatusBarColor()
                 }
             }
         }
