@@ -1,0 +1,16 @@
+# Build artifacts
+build/
+*.dmg
+*.xcarchive
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+*.log
+
+# Environment
+.env

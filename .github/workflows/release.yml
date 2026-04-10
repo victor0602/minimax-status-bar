@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s /Applications/Xcode-26.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build and package DMG
+        run: bash scripts/build-dmg.sh
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/MiniMaxStatusBar.dmg
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            1. Download the `.dmg` file above
+            2. Open the DMG and drag **MiniMax Status Bar** into **Applications**
+            3. On first launch, if you see a security warning, go to **System Settings → Privacy & Security → Still Open**
+
+            ## Requirements
+
+            - macOS 26.0+ (required for Liquid Glass design)
+            - MiniMax API key set as environment variable: `export MINIMAX_API_KEY="your_key"`
