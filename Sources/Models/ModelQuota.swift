@@ -109,6 +109,7 @@ struct ModelQuota {
     let remainsTimeMs: Int64
     let weeklyStartTime: Date
     let weeklyEndTime: Date
+    let fetchedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
         // API 字段 usage_count 实际表示剩余次数（而非已用）
@@ -129,17 +130,25 @@ struct ModelQuota {
             weeklyRemaining: raw.currentWeeklyUsageCount,
             remainsTimeMs: raw.remainsTime,
             weeklyStartTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyStartTime) / 1000),
-            weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000)
+            weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000),
+            fetchedAt: Date()
         )
     }
 
+    /// Remains time that decreases in real-time based on elapsed seconds since fetch
+    var dynamicRemainsTimeMs: Int64 {
+        let elapsed = Int64(Date().timeIntervalSince(fetchedAt) * 1000)
+        return max(0, remainsTimeMs - elapsed)
+    }
+
     var remainsTimeFormatted: String {
-        if remainsTimeMs <= 0 {
+        let ms = dynamicRemainsTimeMs
+        if ms <= 0 {
             return "即将重置"
         }
-        let hours = remainsTimeMs / 3600000
-        let minutes = (remainsTimeMs % 3600000) / 60000
-        let seconds = (remainsTimeMs % 60000) / 1000
+        let hours = ms / 3600000
+        let minutes = (ms % 3600000) / 60000
+        let seconds = (ms % 60000) / 1000
         if hours > 0 {
             return "\(hours)h \(minutes)m"
         } else if minutes > 0 {

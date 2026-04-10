@@ -65,6 +65,7 @@ struct DetailView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     emptyStateView
+                    skeletonView
                     categoryCardList
                 }
                 .padding(.vertical, 8)
@@ -133,19 +134,43 @@ struct DetailView: View {
     @ViewBuilder
     private var emptyStateView: some View {
         if !quotaState.hasData && !quotaState.isLoading {
-            Group {
-                if let err = quotaState.lastError {
-                    Text("错误：\(err)")
-                        .foregroundColor(.red)
-                        .font(.caption)
-                } else {
-                    Text("暂无数据，请点击刷新")
-                        .foregroundColor(.secondary)
-                        .font(.caption)
+            VStack(spacing: 12) {
+                Image(systemName: quotaState.lastError != nil
+                      ? "exclamationmark.triangle"
+                      : "chart.bar.xaxis")
+                    .font(.system(size: 32))
+                    .foregroundColor(quotaState.lastError != nil ? .red : .secondary)
+
+                Text(quotaState.lastError != nil ? "加载失败" : "暂无数据")
+                    .font(.system(size: 13, weight: .medium))
+
+                Text(quotaState.lastError ?? "点击刷新按钮获取用量数据")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Button(action: { onRefresh() }) {
+                    Text("刷新")
+                        .font(.system(size: 11))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
                 }
+                .buttonStyle(.plain)
+                .ifPlatformButton()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .padding(24)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    // MARK: - Skeleton Loading
+
+    @ViewBuilder
+    private var skeletonView: some View {
+        if quotaState.isLoading && !quotaState.hasData {
+            ForEach(0..<4, id: \.self) { _ in
+                SkeletonRowView()
+            }
         }
     }
 
@@ -155,13 +180,18 @@ struct DetailView: View {
     private var categoryCardList: some View {
         ForEach(grouped, id: \.0) { category, models in
             VStack(alignment: .leading, spacing: 0) {
-                Text(category.rawValue)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-                    .tracking(0.5)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+                HStack(spacing: 4) {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                    Text(category.rawValue.uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                        .tracking(0.5)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
                 ForEach(models, id: \.modelName) { model in
                     ModelRowView(model: model)
@@ -178,13 +208,17 @@ struct DetailView: View {
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
-        HStack(spacing: 8) {
-            exitButton
-            if let release = updateState.latestRelease {
-                updateButton(release)
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                exitButton
+                Spacer()
+                if let release = updateState.latestRelease {
+                    updateButton(release)
+                }
+                launchAtLoginButton
+                consoleButton
             }
-            Spacer()
-            consoleButton
+            versionBar
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -206,6 +240,19 @@ struct DetailView: View {
         .buttonStyle(.plain)
         .ifPlatformButton()
         .foregroundColor(.blue)
+    }
+
+    private var launchAtLoginButton: some View {
+        Button(action: {
+            LaunchAtLoginService.isEnabled.toggle()
+        }) {
+            Image(systemName: LaunchAtLoginService.isEnabled ? "power.circle.fill" : "power.circle")
+                .font(.system(size: 14))
+                .foregroundColor(LaunchAtLoginService.isEnabled ? .green : .secondary)
+        }
+        .buttonStyle(.plain)
+        .ifPlatformButton()
+        .help(LaunchAtLoginService.isEnabled ? "已开启开机启动" : "开启开机启动")
     }
 
     @ViewBuilder
@@ -286,6 +333,22 @@ struct DetailView: View {
         .buttonStyle(.plain)
         .ifPlatformButton()
     }
+
+    private var versionBar: some View {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return HStack {
+            Text("v\(currentVersion)")
+                .font(.system(size: 9))
+                .foregroundColor(Color(nsColor: .quaternaryLabelColor))
+            if let release = updateState.latestRelease {
+                Text("→ v\(release.version)")
+                    .font(.system(size: 9))
+                    .foregroundColor(.blue.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.bottom, 4)
+    }
 }
 
 // MARK: - Platform-specific modifiers via type-erased wrappers
@@ -307,51 +370,36 @@ extension View {
     }
 }
 
-// Type-erased platform-specific style appliers
-// These prevent the compiler from seeing unavailable APIs at the call site
+// MARK: - SkeletonRowView
 
-@MainActor
-private final class GlassEffectApplier: @unchecked Sendable {
-    static let shared = GlassEffectApplier()
-    private init() {}
-
-    @ViewBuilder
-    func apply(to view: some View) -> some View {
-        view.background(Color(nsColor: .windowBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-@MainActor
-private final class ButtonStyleApplier: @unchecked Sendable {
-    static let shared = ButtonStyleApplier()
-    private init() {}
-
-    @MainActor
-    private func applyFallbackButton(to view: some View) -> some View {
-        view.background(Color.primary.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
-    @ViewBuilder
-    func apply(to view: some View) -> some View {
-        applyFallbackButton(to: view)
-    }
-}
-
-@MainActor
-private final class CardStyleApplier: @unchecked Sendable {
-    static let shared = CardStyleApplier()
-    private init() {}
-
-    @MainActor
-    private func applyFallbackCard(to view: some View) -> some View {
-        view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    @ViewBuilder
-    func apply(to view: some View) -> some View {
-        applyFallbackCard(to: view)
+struct SkeletonRowView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 120, height: 12)
+                Spacer()
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.1))
+                    .frame(width: 40, height: 12)
+            }
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.primary.opacity(0.08))
+                .frame(height: 5)
+            HStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.07))
+                    .frame(width: 80, height: 10)
+                Spacer()
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.primary.opacity(0.07))
+                    .frame(width: 60, height: 10)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .redacted(reason: .placeholder)
     }
 }
 
@@ -359,6 +407,8 @@ private final class CardStyleApplier: @unchecked Sendable {
 
 struct ModelRowView: View {
     let model: ModelQuota
+    @State private var isExpanded = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -371,37 +421,48 @@ struct ModelRowView: View {
                     .font(.caption)
                     .foregroundColor(progressColor(for: model.remainingPercent))
             }
-
-            Text(model.modelName)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.primary.opacity(0.08))
-                        .frame(height: 3)
+                        .fill(colorScheme == .dark
+                              ? Color.white.opacity(0.12)
+                              : Color.black.opacity(0.08))
+                        .frame(height: 5)
 
                     Capsule()
                         .fill(progressColor(for: model.remainingPercent))
-                        .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 3)
+                        .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 5)
                 }
             }
-            .frame(height: 3)
+            .frame(height: 5)
 
             HStack {
                 Text("剩余 \(formatNumber(model.remainingCount)) / \(formatNumber(model.totalCount))")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
-                Text("本周: \(formatNumber(model.weeklyRemaining)) / \(formatNumber(model.weeklyTotal))")
-                    .font(.caption)
+                Text("重置: \(model.remainsTimeFormatted)")
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
 
-            Text("重置: \(model.remainsTimeFormatted)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            if isExpanded {
+                HStack {
+                    Text("本周: \(formatNumber(model.weeklyRemaining)) / \(formatNumber(model.weeklyTotal))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.top, 2)
+                .transition(.opacity)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)

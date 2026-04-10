@@ -155,7 +155,8 @@ final class UpdateState: ObservableObject {
         self.installPhase = "重启中"
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/MiniMax Status Bar.app"))
+            let appPath = Bundle.main.bundlePath
+            NSWorkspace.shared.open(URL(fileURLWithPath: appPath))
             NSApplication.shared.terminate(nil)
         }
     }

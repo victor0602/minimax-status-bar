@@ -10,6 +10,8 @@ class StatusBarController {
     private var updateTimer: Timer?
     private var popover: NSPopover?
     private var eventMonitor: Any?
+    private var retryCount: Int = 0
+    private var retryTask: Task<Void, Never>?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -29,17 +31,29 @@ class StatusBarController {
             export MINIMAX_API_KEY=your_key
             """
             quotaState.isLoading = false
+        } else if !apiKey.hasPrefix("sk-") && !apiKey.hasPrefix("sk-cp-") {
+            // Token Plan Key format check
+            quotaState.lastError = """
+            API Key 格式异常
+
+            请确认使用的是 Token Plan Key
+            Token Plan Key 通常以 sk-cp- 开头
+
+            前往获取：platform.minimaxi.com/user-center/payment/token-plan
+            """
+            quotaState.isLoading = false
         } else {
             apiService = MiniMaxAPIService(apiKey: apiKey)
         }
 
         setupStatusBarButton()
         setupPopover()
-        if !apiKey.isEmpty {
+        if apiService != nil {
             startPolling()
         }
 
         startUpdateTimer()
+        NotificationService.shared.requestPermission()
     }
 
     // MARK: - API Key Resolution
@@ -74,7 +88,6 @@ class StatusBarController {
             return ""
         }
 
-        // Path: models.providers.minimax.apiKey
         if let models = json["models"] as? [String: Any],
            let providers = models["providers"] as? [String: Any],
            let minimax = providers["minimax"] as? [String: Any],
@@ -82,7 +95,6 @@ class StatusBarController {
             return apiKey
         }
 
-        // Path: env.MINIMAX_API_KEY
         if let env = json["env"] as? [String: Any],
            let apiKey = env["MINIMAX_API_KEY"] as? String, !apiKey.isEmpty {
             return apiKey
@@ -113,7 +125,7 @@ class StatusBarController {
         popover?.setValue(true, forKeyPath: "shouldHideAnchor")
 
         let contentView = MenuContentView(quotaState: quotaState, onRefresh: { [weak self] in
-            self?.refresh()
+            self?.manualRefresh()
         })
         let hostingController = NSHostingController(rootView: contentView)
 
@@ -125,6 +137,13 @@ class StatusBarController {
     }
 
     @objc private func togglePopover() {
+        Task { @MainActor in
+            self.doTogglePopover()
+        }
+    }
+
+    @MainActor
+    private func doTogglePopover() {
         guard let popover = popover, let button = statusItem.button else { return }
 
         if popover.isShown {
@@ -149,8 +168,9 @@ class StatusBarController {
         }
     }
 
-    private func startPolling() {
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+    private func startPolling(interval: TimeInterval = 60) {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
         refresh()
@@ -167,6 +187,13 @@ class StatusBarController {
                 await UpdateState.shared.checkForUpdate()
             }
         }
+    }
+
+    private func manualRefresh() {
+        retryCount = 0
+        retryTask?.cancel()
+        retryTask = nil
+        refresh()
     }
 
     private func refresh() {
@@ -190,15 +217,40 @@ class StatusBarController {
                     quotaState.models = models
                     quotaState.lastUpdatedAt = Date()
                     quotaState.lastError = nil
+                    self.retryCount = 0
+                    self.adjustPollingInterval()
                     self.updateStatusBarColor()
+                    NotificationService.shared.checkAndNotify(models: models)
                 }
             } catch {
                 await MainActor.run {
-                    quotaState.lastError = self.sanitizedError(error)
-                    self.updateStatusBarColor()
+                    self.handleRefreshError(error)
                 }
             }
         }
+    }
+
+    private func handleRefreshError(_ error: Error) {
+        if retryCount < 3 {
+            retryCount += 1
+            retryTask?.cancel()
+            retryTask = Task {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                await MainActor.run {
+                    self.refresh()
+                }
+            }
+        } else {
+            retryCount = 0
+            quotaState.lastError = sanitizedError(error)
+            updateStatusBarColor()
+        }
+    }
+
+    private func adjustPollingInterval() {
+        guard let primary = quotaState.primaryModel else { return }
+        let interval: TimeInterval = primary.remainingPercent < 10 ? 10 : 60
+        startPolling(interval: interval)
     }
 
     private func sanitizedError(_ error: Error) -> String {
@@ -216,6 +268,17 @@ class StatusBarController {
                 OpenClaw 用户重启 app 即可自动读取
                 其他用户请在终端执行：
                 export MINIMAX_API_KEY=your_key
+                """
+            case .serverError(401):
+                return """
+                API Key 验证失败（401）
+
+                请确认使用的是 Token Plan Key
+                而非普通 Open Platform API Key
+
+                Token Plan Key 以 sk-cp- 开头
+                前往：platform.minimaxi.com/user-center/payment/token-plan
+                获取 Token Plan Key
                 """
             default:
                 break
@@ -242,13 +305,8 @@ class StatusBarController {
             return
         }
 
-        let remainingPercent = primary.remainingPercent
-        if remainingPercent > 30 {
-            button.title = " 🟢"
-        } else if remainingPercent > 10 {
-            button.title = " 🟡"
-        } else {
-            button.title = " 🔴"
-        }
+        let pct = primary.remainingPercent
+        let dot = pct > 30 ? "🟢" : (pct > 10 ? "🟡" : "🔴")
+        button.title = " \(dot) \(pct)%"
     }
 }
