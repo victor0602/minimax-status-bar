@@ -1,14 +1,5 @@
 import SwiftUI
 
-// MARK: - macOS Version Detection
-
-private var supportsLiquidGlass: Bool {
-    if #available(macOS 26.0, *) {
-        return true
-    }
-    return false
-}
-
 // MARK: - DetailView
 
 struct DetailView: View {
@@ -49,210 +40,251 @@ struct DetailView: View {
     }
 
     var body: some View {
-        ZStack {
-            // 内容层
-            VStack(spacing: 0) {
-
-
-                // ── 标题栏 ──
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("MiniMax")
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("API 用量监控")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                        Spacer()
-                        HStack(spacing: 6) {
-                            if quotaState.isLoading {
-                                ProgressView().scaleEffect(0.6)
-                            }
-                            Button(action: {
-                                onRefresh()
-                            }) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .padding(7)
-                            }
-                            .buttonStyle(.plain)
-                            .if(supportsLiquidGlass) { view in
-                                view.glassEffect(.regular.interactive())
-                            }
-                            .if(!supportsLiquidGlass) { view in
-                                view.background(Color.primary.opacity(0.1))
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            .keyboardShortcut("r", modifiers: .command)
-                            .help("刷新数据")
-                        }
-                    }
+        containerView
+            .frame(width: 320)
+            .scaleEffect(isExiting ? 0.85 : 1.0)
+            .opacity(isExiting ? 0.0 : 1.0)
+            .blur(radius: isExiting ? 8 : 0)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+            )
+            .onAppear {
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    now = Date()
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+            }
+            .onDisappear {
+                timer?.invalidate()
+            }
+    }
 
-                // ── 最后更新时间 ──
-                if let updated = quotaState.lastUpdatedAt {
-                    Text("最后更新：\(relativeTime(updated))")
+    @ViewBuilder
+    private var containerView: some View {
+        if #available(macOS 26.0, *) {
+            ZStack {
+                VStack(spacing: 0) {
+                    headerBar
+                    lastUpdatedText
+                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+                    ScrollView(.vertical, showsIndicators: true) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            emptyStateView
+                            categoryCardList
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
+                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+                    bottomBar
+                }
+            }
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+        } else {
+            ZStack {
+                VStack(spacing: 0) {
+                    headerBar
+                    lastUpdatedText
+                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+                    ScrollView(.vertical, showsIndicators: true) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            emptyStateView
+                            categoryCardList
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
+                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+                    bottomBar
+                }
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    // MARK: - Header Bar
+
+    @ViewBuilder
+    private var headerBar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MiniMax")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("API 用量监控")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.bottom, 6)
                 }
-
-                // 标题栏分隔线
-                Rectangle()
-                    .fill(.separator)
-                    .frame(height: 0.5)
-                    .opacity(0.5)
-
-                // ── 可滚动区域（模型列表）──
-                ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-
-                        // 无数据状态
-                        if !quotaState.hasData && !quotaState.isLoading {
-                            Group {
-                                if let err = quotaState.lastError {
-                                    Text("错误：\(err)")
-                                        .foregroundColor(.red)
-                                        .font(.caption)
-                                } else {
-                                    Text("暂无数据，请点击刷新")
-                                        .foregroundColor(.secondary)
-                                        .font(.caption)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                        }
-
-                        // 分组模型列表
-                        ForEach(grouped, id: \.0) { category, models in
-                            VStack(alignment: .leading, spacing: 0) {
-                                // 分类标题
-                                Text(category.rawValue)
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-                                    .tracking(0.5)
-                                    .padding(.horizontal, 14)
-                                    .padding(.top, 8)
-                                    .padding(.bottom, 4)
-
-                                // 模型卡片
-                                ForEach(models, id: \.modelName) { model in
-                                    ModelRowView(model: model)
-                                    if model.modelName != models.last?.modelName {
-                                        Divider().padding(.leading, 14)
-                                    }
-                                }
-                            }
-                            .if(supportsLiquidGlass) { view in
-                                view.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                            }
-                            .if(!supportsLiquidGlass) { view in
-                                view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-                            }
-                            .padding(.horizontal, 8)
-                        }
+                Spacer()
+                HStack(spacing: 6) {
+                    if quotaState.isLoading {
+                        ProgressView().scaleEffect(0.6)
                     }
-                    .padding(.vertical, 8)
+                    refreshButton
                 }
-                .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
 
-                // 底部栏分隔线
-                Rectangle()
-                    .fill(.separator)
-                    .frame(height: 0.5)
-                    .opacity(0.5)
+    // MARK: - Refresh Button
 
-                // ── 底部操作栏 ──
-                HStack(spacing: 8) {
-                    Button(action: { triggerExitAnimation() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "power")
-                                .font(.system(size: 10))
-                            Text("退出")
-                                .font(.system(size: 11))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                    }
-                    .buttonStyle(.plain)
-                    .if(supportsLiquidGlass) { view in
-                        view.glassEffect(.regular.interactive())
-                    }
-                    .if(!supportsLiquidGlass) { view in
-                        view.background(Color.primary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .keyboardShortcut("q", modifiers: .command)
+    @ViewBuilder
+    private var refreshButton: some View {
+        Button(action: { onRefresh() }) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 12, weight: .medium))
+                .padding(7)
+        }
+        .buttonStyle(.plain)
+        .refreshButtonStyle()
+        .keyboardShortcut("r", modifiers: .command)
+        .help("刷新数据")
+    }
 
-                    Button(action: {
-                        if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 3) {
-                            Text("控制台")
-                                .font(.system(size: 11))
-                            Image(systemName: "arrow.up.right.square")
-                                .font(.system(size: 9))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                    }
-                    .buttonStyle(.plain)
-                    .if(supportsLiquidGlass) { view in
-                        view.glassEffect(.regular.interactive())
-                    }
-                    .if(!supportsLiquidGlass) { view in
-                        view.background(Color.primary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                }
+    // MARK: - Last Updated
+
+    @ViewBuilder
+    private var lastUpdatedText: some View {
+        if let updated = quotaState.lastUpdatedAt {
+            Text("最后更新：\(relativeTime(updated))")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.bottom, 6)
+        }
+    }
+
+    // MARK: - Empty State
+
+    @ViewBuilder
+    private var emptyStateView: some View {
+        if !quotaState.hasData && !quotaState.isLoading {
+            Group {
+                if let err = quotaState.lastError {
+                    Text("错误：\(err)")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                } else {
+                    Text("暂无数据，请点击刷新")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
         }
-        .frame(width: 320)
-        .scaleEffect(isExiting ? 0.85 : 1.0)
-        .opacity(isExiting ? 0.0 : 1.0)
-        .blur(radius: isExiting ? 8 : 0)
-        .if(supportsLiquidGlass) { view in
-            view.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-        }
-        .if(!supportsLiquidGlass) { view in
-            view.background(Color(nsColor: .windowBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-        )
-        .onAppear {
-            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                now = Date()
+    }
+
+    // MARK: - Category Card List
+
+    @ViewBuilder
+    private var categoryCardList: some View {
+        ForEach(grouped, id: \.0) { category, models in
+            VStack(alignment: .leading, spacing: 0) {
+                Text(category.rawValue)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                    .tracking(0.5)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+
+                ForEach(models, id: \.modelName) { model in
+                    ModelRowView(model: model)
+                    if model.modelName != models.last?.modelName {
+                        Divider().padding(.leading, 14)
+                    }
+                }
             }
+            .categoryCardStyle()
+            .padding(.horizontal, 8)
         }
-        .onDisappear {
-            timer?.invalidate()
+    }
+
+    // MARK: - Bottom Bar
+
+    @ViewBuilder
+    private var bottomBar: some View {
+        HStack(spacing: 8) {
+            exitButton
+            consoleButton
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var exitButton: some View {
+        Button(action: { triggerExitAnimation() }) {
+            HStack(spacing: 4) {
+                Image(systemName: "power")
+                    .font(.system(size: 10))
+                Text("退出")
+                    .font(.system(size: 11))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+        }
+        .buttonStyle(.plain)
+        .actionButtonStyle()
+        .keyboardShortcut("q", modifiers: .command)
+    }
+
+    @ViewBuilder
+    private var consoleButton: some View {
+        Button(action: {
+            if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
+                NSWorkspace.shared.open(url)
+            }
+        }) {
+            HStack(spacing: 3) {
+                Text("控制台")
+                    .font(.system(size: 11))
+                Image(systemName: "arrow.up.right.square")
+                    .font(.system(size: 9))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+        }
+        .buttonStyle(.plain)
+        .actionButtonStyle()
     }
 }
 
-// MARK: - View Extension for Conditional Modifier
+// MARK: - Platform-specific view modifiers
 
 extension View {
     @ViewBuilder
-    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
-        if condition {
-            transform(self)
+    fileprivate func refreshButtonStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular.interactive())
         } else {
-            self
+            self.background(Color.primary.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    @ViewBuilder
+    fileprivate func actionButtonStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular.interactive())
+        } else {
+            self.background(Color.primary.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    @ViewBuilder
+    fileprivate func categoryCardStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        } else {
+            self.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
         }
     }
 }

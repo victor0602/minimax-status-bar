@@ -4,15 +4,15 @@ A macOS menu bar app for monitoring MiniMax API token usage in real-time.
 
 ## Requirements
 
-- **macOS 26.0+** (required for Liquid Glass design)
-  - This app uses macOS 26's native Liquid Glass and glassEffect APIs
-  - Deployment target is macOS 26.0
+- **macOS 13.0 or later**
+  - Liquid Glass UI on macOS 26+
+  - Fallback design on macOS 13–25
 
 ## Features
 
 - Real-time API usage monitoring
 - Support for multiple model categories (Text, Speech, Video, Music, Image)
-- macOS native Liquid Glass UI design
+- Liquid Glass UI design on macOS 26+, native fallback on older versions
 - Automatic refresh with live countdown
 - Color-coded status indicators (green/yellow/red)
 - One-click console access
@@ -21,8 +21,8 @@ A macOS menu bar app for monitoring MiniMax API token usage in real-time.
 
 ### Prerequisites
 
-1. **macOS 26.0+** - Required for Liquid Glass design
-2. **Xcode 26+** - For building from source
+1. **macOS 13.0+**
+2. **Xcode 16+** - For building from source
 3. **MiniMax API Key** - Set as environment variable
 
 ### Building from Source
@@ -42,7 +42,7 @@ xcodegen generate
 xcodebuild -scheme minimax-status-bar -configuration Debug build
 
 # Run
-open /Users/victor/Library/Developer/Xcode/DerivedData/minimax-status-bar-*/Build/Products/Debug/MiniMax\ Status\ Bar.app
+open ~/Library/Developer/Xcode/DerivedData/minimax-status-bar-*/Build/Products/Debug/MiniMax\ Status\ Bar.app
 ```
 
 Or open `minimax-status-bar.xcodeproj` in Xcode and run.
@@ -67,7 +67,7 @@ Or open `minimax-status-bar.xcodeproj` in Xcode and run.
 
 ## Architecture
 
-- **SwiftUI** - UI framework with Liquid Glass design
+- **SwiftUI** - UI framework with Liquid Glass design (macOS 26+)
 - **NSPopover** - Menu bar popover for displaying content
 - **SQLite.swift** - Local data persistence
 - **ObservableObject** - State management (compatible with macOS 13+)

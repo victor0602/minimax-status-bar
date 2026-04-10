@@ -15,9 +15,11 @@ STAGING_DIR="${ARTIFACTS_DIR}/dmg-staging"
 # Clean previous artifacts
 rm -rf "${ARTIFACTS_DIR}"
 mkdir -p "${ARTIFACTS_DIR}"
+mkdir -p "${STAGING_DIR}"
 
 # Step 1: Archive (disabled code signing)
 xcodebuild archive \
+    -project minimax-status-bar.xcodeproj \
     -scheme "${SCHEME}" \
     -configuration "${CONFIG}" \
     -archivePath "${ARTIFACTS_DIR}/${SCHEME}.xcarchive" \
@@ -32,22 +34,14 @@ xcodebuild -exportArchive \
     -exportOptionsPlist "${EXPORT_PLIST}"
 
 # Step 3: Package into .dmg
-rm -rf "${STAGING_DIR}"
-mkdir -p "${STAGING_DIR}"
-
-# Copy .app to staging
 cp -R "${ARTIFACTS_DIR}/${APP_FILENAME}" "${STAGING_DIR}/"
+ln -sf /Applications "${STAGING_DIR}/Applications"
 
-# Symlink /Applications
-ln -s /Applications "${STAGING_DIR}/Applications"
-
-# Create .dmg
 hdiutil create \
     -volname "${APP_NAME}" \
     -srcfolder "${STAGING_DIR}" \
     -format UDZO \
-    -ov \
-    "${DMG_FILENAME}"
+    -ov "${DMG_FILENAME}"
 
 # Cleanup staging
 rm -rf "${STAGING_DIR}"
