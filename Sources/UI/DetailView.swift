@@ -253,25 +253,10 @@ private final class GlassEffectApplier: @unchecked Sendable {
     static let shared = GlassEffectApplier()
     private init() {}
 
-    @available(macOS 26.0, *)
-    private var glassView: some View {
-        EmptyView()
-    }
-
     @ViewBuilder
     func apply(to view: some View) -> some View {
-        if #available(macOS 26.0, *) {
-            applyGlass(to: view)
-        } else {
-            view.background(Color(nsColor: .windowBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-        }
-    }
-
-    @available(macOS 26.0, *)
-    @MainActor
-    private func applyGlass(to view: some View) -> some View {
-        view.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+        view.background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -279,12 +264,6 @@ private final class GlassEffectApplier: @unchecked Sendable {
 private final class ButtonStyleApplier: @unchecked Sendable {
     static let shared = ButtonStyleApplier()
     private init() {}
-
-    @available(macOS 26.0, *)
-    @MainActor
-    private func applyGlassButton(to view: some View) -> some View {
-        view.glassEffect(.regular.interactive())
-    }
 
     @MainActor
     private func applyFallbackButton(to view: some View) -> some View {
@@ -294,11 +273,7 @@ private final class ButtonStyleApplier: @unchecked Sendable {
 
     @ViewBuilder
     func apply(to view: some View) -> some View {
-        if #available(macOS 26.0, *) {
-            applyGlassButton(to: view)
-        } else {
-            applyFallbackButton(to: view)
-        }
+        applyFallbackButton(to: view)
     }
 }
 
@@ -307,12 +282,6 @@ private final class CardStyleApplier: @unchecked Sendable {
     static let shared = CardStyleApplier()
     private init() {}
 
-    @available(macOS 26.0, *)
-    @MainActor
-    private func applyGlassCard(to view: some View) -> some View {
-        view.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
-    }
-
     @MainActor
     private func applyFallbackCard(to view: some View) -> some View {
         view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
@@ -320,11 +289,7 @@ private final class CardStyleApplier: @unchecked Sendable {
 
     @ViewBuilder
     func apply(to view: some View) -> some View {
-        if #available(macOS 26.0, *) {
-            applyGlassCard(to: view)
-        } else {
-            applyFallbackCard(to: view)
-        }
+        applyFallbackCard(to: view)
     }
 }
 
