@@ -2,6 +2,7 @@ import SwiftUI
 
 // MARK: - DetailView
 
+@MainActor
 struct DetailView: View {
     let quotaState: QuotaState
     let onRefresh: () -> Void
@@ -50,7 +51,7 @@ struct DetailView: View {
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
             )
             .onAppear {
-                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
                     now = Date()
                 }
             }
@@ -61,51 +62,26 @@ struct DetailView: View {
 
     @ViewBuilder
     private var containerView: some View {
-        if #available(macOS 26.0, *) {
-            ZStack {
-                VStack(spacing: 0) {
-                    headerBar
-                    lastUpdatedText
-                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-                    ScrollView(.vertical, showsIndicators: true) {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            emptyStateView
-                            categoryCardList
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
-                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-                    bottomBar
+        VStack(spacing: 0) {
+            headerBar
+            lastUpdatedText
+            Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    emptyStateView
+                    categoryCardList
                 }
+                .padding(.vertical, 8)
             }
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
-        } else {
-            ZStack {
-                VStack(spacing: 0) {
-                    headerBar
-                    lastUpdatedText
-                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-                    ScrollView(.vertical, showsIndicators: true) {
-                        LazyVStack(alignment: .leading, spacing: 8) {
-                            emptyStateView
-                            categoryCardList
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
-                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-                    bottomBar
-                }
-            }
-            .background(Color(nsColor: .windowBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
+            Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+            bottomBar
         }
+        .ifPlatformGlass()
     }
 
     // MARK: - Header Bar
 
-    @ViewBuilder
     private var headerBar: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
@@ -130,9 +106,6 @@ struct DetailView: View {
         .padding(.bottom, 8)
     }
 
-    // MARK: - Refresh Button
-
-    @ViewBuilder
     private var refreshButton: some View {
         Button(action: { onRefresh() }) {
             Image(systemName: "arrow.clockwise")
@@ -140,7 +113,7 @@ struct DetailView: View {
                 .padding(7)
         }
         .buttonStyle(.plain)
-        .refreshButtonStyle()
+        .ifPlatformButton()
         .keyboardShortcut("r", modifiers: .command)
         .help("刷新数据")
     }
@@ -201,14 +174,13 @@ struct DetailView: View {
                     }
                 }
             }
-            .categoryCardStyle()
+            .ifPlatformCard()
             .padding(.horizontal, 8)
         }
     }
 
     // MARK: - Bottom Bar
 
-    @ViewBuilder
     private var bottomBar: some View {
         HStack(spacing: 8) {
             exitButton
@@ -218,7 +190,6 @@ struct DetailView: View {
         .padding(.vertical, 8)
     }
 
-    @ViewBuilder
     private var exitButton: some View {
         Button(action: { triggerExitAnimation() }) {
             HStack(spacing: 4) {
@@ -231,11 +202,10 @@ struct DetailView: View {
             .padding(.vertical, 5)
         }
         .buttonStyle(.plain)
-        .actionButtonStyle()
+        .ifPlatformButton()
         .keyboardShortcut("q", modifiers: .command)
     }
 
-    @ViewBuilder
     private var consoleButton: some View {
         Button(action: {
             if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
@@ -252,39 +222,108 @@ struct DetailView: View {
             .padding(.vertical, 5)
         }
         .buttonStyle(.plain)
-        .actionButtonStyle()
+        .ifPlatformButton()
     }
 }
 
-// MARK: - Platform-specific view modifiers
+// MARK: - Platform-specific modifiers via type-erased wrappers
 
 extension View {
     @ViewBuilder
-    fileprivate func refreshButtonStyle() -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.regular.interactive())
-        } else {
-            self.background(Color.primary.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
+    fileprivate func ifPlatformGlass() -> some View {
+        GlassEffectApplier.shared.apply(to: self)
     }
 
     @ViewBuilder
-    fileprivate func actionButtonStyle() -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.regular.interactive())
-        } else {
-            self.background(Color.primary.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
+    fileprivate func ifPlatformButton() -> some View {
+        ButtonStyleApplier.shared.apply(to: self)
     }
 
     @ViewBuilder
-    fileprivate func categoryCardStyle() -> some View {
+    fileprivate func ifPlatformCard() -> some View {
+        CardStyleApplier.shared.apply(to: self)
+    }
+}
+
+// Type-erased platform-specific style appliers
+// These prevent the compiler from seeing unavailable APIs at the call site
+
+@MainActor
+private final class GlassEffectApplier: @unchecked Sendable {
+    static let shared = GlassEffectApplier()
+    private init() {}
+
+    @available(macOS 26.0, *)
+    private var glassView: some View {
+        EmptyView()
+    }
+
+    @ViewBuilder
+    func apply(to view: some View) -> some View {
         if #available(macOS 26.0, *) {
-            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            applyGlass(to: view)
         } else {
-            self.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            view.background(Color(nsColor: .windowBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    @available(macOS 26.0, *)
+    @MainActor
+    private func applyGlass(to view: some View) -> some View {
+        view.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+@MainActor
+private final class ButtonStyleApplier: @unchecked Sendable {
+    static let shared = ButtonStyleApplier()
+    private init() {}
+
+    @available(macOS 26.0, *)
+    @MainActor
+    private func applyGlassButton(to view: some View) -> some View {
+        view.glassEffect(.regular.interactive())
+    }
+
+    @MainActor
+    private func applyFallbackButton(to view: some View) -> some View {
+        view.background(Color.primary.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    func apply(to view: some View) -> some View {
+        if #available(macOS 26.0, *) {
+            applyGlassButton(to: view)
+        } else {
+            applyFallbackButton(to: view)
+        }
+    }
+}
+
+@MainActor
+private final class CardStyleApplier: @unchecked Sendable {
+    static let shared = CardStyleApplier()
+    private init() {}
+
+    @available(macOS 26.0, *)
+    @MainActor
+    private func applyGlassCard(to view: some View) -> some View {
+        view.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    @MainActor
+    private func applyFallbackCard(to view: some View) -> some View {
+        view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    func apply(to view: some View) -> some View {
+        if #available(macOS 26.0, *) {
+            applyGlassCard(to: view)
+        } else {
+            applyFallbackCard(to: view)
         }
     }
 }
