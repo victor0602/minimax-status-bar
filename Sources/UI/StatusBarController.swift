@@ -7,6 +7,7 @@ class StatusBarController: @unchecked Sendable {
     private var apiService: MiniMaxAPIService!
     private var persistenceService: DataPersistenceService!
     private var timer: Timer?
+    private var updateTimer: Timer?
     private var popover: NSPopover?
     private var eventMonitor: Any?
 
@@ -28,6 +29,8 @@ class StatusBarController: @unchecked Sendable {
         if !apiKey.isEmpty {
             startPolling()
         }
+
+        startUpdateTimer()
     }
 
     private func setupStatusBarButton() {
@@ -89,6 +92,19 @@ class StatusBarController: @unchecked Sendable {
             self?.refresh()
         }
         refresh()
+    }
+
+    private func startUpdateTimer() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            await UpdateState.shared.checkForUpdate()
+        }
+
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await UpdateState.shared.checkForUpdate()
+            }
+        }
     }
 
     private func refresh() {

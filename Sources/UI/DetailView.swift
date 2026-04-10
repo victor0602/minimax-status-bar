@@ -10,6 +10,7 @@ struct DetailView: View {
     @State private var now: Date = Date()
     @State private var timer: Timer?
     @State private var isExiting = false
+    @ObservedObject private var updateState = UpdateState.shared
 
     private func triggerExitAnimation() {
         withAnimation(.spring(duration: 0.35, bounce: 0.0)) {
@@ -50,6 +51,7 @@ struct DetailView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
             )
+            .overlay(downloadingOverlay)
             .onAppear {
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
                     now = Date()
@@ -184,10 +186,64 @@ struct DetailView: View {
     private var bottomBar: some View {
         HStack(spacing: 8) {
             exitButton
+            if let release = updateState.latestRelease {
+                updateButton(release)
+            }
+            Spacer()
             consoleButton
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+    }
+
+    private func updateButton(_ release: ReleaseInfo) -> some View {
+        Button(action: {
+            updateState.downloadAndInstall(release)
+        }) {
+            HStack(spacing: 3) {
+                Image(systemName: "arrow.down.circle")
+                    .font(.system(size: 10))
+                Text("更新 v\(release.version)")
+                    .font(.system(size: 11))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+        }
+        .buttonStyle(.plain)
+        .ifPlatformButton()
+        .foregroundColor(.blue)
+    }
+
+    @ViewBuilder
+    private var downloadingOverlay: some View {
+        if updateState.isDownloading {
+            ZStack {
+                Color.black.opacity(0.5)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                VStack(spacing: 12) {
+                    Text("正在下载更新...")
+                        .font(.system(size: 13, weight: .medium))
+
+                    ProgressView(value: updateState.downloadProgress)
+                        .frame(width: 200)
+
+                    Text("\(Int(updateState.downloadProgress * 100))%")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+
+                    Button("取消") {
+                        updateState.cancelDownload()
+                    }
+                    .font(.system(size: 11))
+                    .buttonStyle(.plain)
+                }
+                .padding(24)
+                .background(Color(nsColor: .windowBackgroundColor).opacity(0.95))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .transition(.opacity)
+        }
     }
 
     private var exitButton: some View {
