@@ -59,6 +59,18 @@ xattr -cr "/Applications/MiniMax Status Bar.app"
 ```
 Then re-open the app.
 
+### 配置 API Key
+
+App 启动时自动从环境变量读取，无需在 app 内配置。
+
+在终端添加到 shell 配置文件（永久生效）：
+```bash
+echo 'export MINIMAX_API_KEY="your_key_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+然后启动 MiniMax Status Bar app。如果未配置 API Key，app 会显示友好提示。
+
 ### Environment Variables
 
 | Variable | Description |

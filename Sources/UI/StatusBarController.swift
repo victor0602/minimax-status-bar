@@ -15,11 +15,19 @@ class StatusBarController: @unchecked Sendable {
         persistenceService = DataPersistenceService()
 
         let apiKey = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"] ?? ""
-        apiService = MiniMaxAPIService(apiKey: apiKey)
+
+        if apiKey.isEmpty {
+            quotaState.lastError = "未找到 MINIMAX_API_KEY 环境变量\n\n请在终端执行：\nexport MINIMAX_API_KEY=your_key\n然后重启 app"
+            quotaState.isLoading = false
+        } else {
+            apiService = MiniMaxAPIService(apiKey: apiKey)
+        }
 
         setupStatusBarButton()
         setupPopover()
-        startPolling()
+        if !apiKey.isEmpty {
+            startPolling()
+        }
     }
 
     private func setupStatusBarButton() {
@@ -119,6 +127,14 @@ class StatusBarController: @unchecked Sendable {
     }
 
     private func sanitizedError(_ error: Error) -> String {
+        if let apiError = error as? MiniMaxAPIError {
+            switch apiError {
+            case .missingAPIKey:
+                return "未找到 MINIMAX_API_KEY 环境变量\n\n请在终端执行：\nexport MINIMAX_API_KEY=your_key\n然后重启 app"
+            default:
+                break
+            }
+        }
         let msg = error.localizedDescription
         // Strip IP addresses which may appear in server error messages
         return msg.replacingOccurrences(
