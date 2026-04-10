@@ -16,36 +16,14 @@ A macOS menu bar app for monitoring MiniMax API token usage in real-time.
 - Automatic refresh with live countdown
 - Color-coded status indicators (green/yellow/red)
 - One-click console access
+- Auto-update from GitHub Releases
 
 ## Installation
 
 ### Prerequisites
 
 1. **macOS 13.0+**
-2. **Xcode 16+** - For building from source
-3. **MiniMax API Key** - Set as environment variable
-
-### Building from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/victor0602/minimax-status-bar.git
-cd minimax-status-bar
-
-# Set your MiniMax API key
-export MINIMAX_API_KEY="your_api_key_here"
-
-# Generate Xcode project
-xcodegen generate
-
-# Build
-xcodebuild -scheme minimax-status-bar -configuration Debug build
-
-# Run
-open ~/Library/Developer/Xcode/DerivedData/minimax-status-bar-*/Build/Products/Debug/MiniMax\ Status\ Bar.app
-```
-
-Or open `minimax-status-bar.xcodeproj` in Xcode and run.
+2. **MiniMax API Key** — Set as environment variable
 
 ### Download Release
 
@@ -59,17 +37,30 @@ xattr -cr "/Applications/MiniMax Status Bar.app"
 ```
 Then re-open the app.
 
-### 配置 API Key
+### Configure API Key
 
-App 启动时自动从环境变量读取，无需在 app 内配置。
+The app reads the API key from the `MINIMAX_API_KEY` environment variable automatically — no in-app configuration needed.
 
-在终端添加到 shell 配置文件（永久生效）：
+To set it permanently, add to your shell config:
 ```bash
 echo 'export MINIMAX_API_KEY="your_key_here"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-然后启动 MiniMax Status Bar app。如果未配置 API Key，app 会显示友好提示。
+Then launch MiniMax Status Bar. If the key is not configured, the app will display a friendly error message.
+
+### Build from Source
+
+This project uses [XcodeGen](https://github.com/yonaskolb/XcodeGen) for project generation. After any project file changes, run `xcodegen generate` to regenerate the `.xcodeproj`.
+
+```bash
+git clone https://github.com/victor0602/minimax-status-bar.git
+cd minimax-status-bar
+xcodegen generate
+xcodebuild -project minimax-status-bar.xcodeproj -scheme minimax-status-bar -configuration Debug build
+```
+
+Or open `minimax-status-bar.xcodeproj` in Xcode and run.
 
 ### Environment Variables
 
@@ -83,6 +74,7 @@ source ~/.zshrc
 2. Click the menu bar icon to view API usage
 3. Click refresh button or press `Cmd+R` to manually refresh
 4. View remaining quota and reset time for each model
+5. Click "Update" button when a new version is available — the app will download, install, and restart automatically
 
 ## API Endpoint
 
@@ -91,10 +83,9 @@ source ~/.zshrc
 
 ## Architecture
 
-- **SwiftUI** - UI framework with Liquid Glass design (macOS 26+)
-- **NSPopover** - Menu bar popover for displaying content
-- **SQLite.swift** - Local data persistence
-- **ObservableObject** - State management (compatible with macOS 13+)
+- **SwiftUI** — UI framework with Liquid Glass design (macOS 26+)
+- **NSPopover** — Menu bar popover for displaying content
+- **ObservableObject** — State management (compatible with macOS 13+)
 
 ## License
 

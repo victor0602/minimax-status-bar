@@ -28,9 +28,6 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
         CODE_SIGN_STYLE: Automatic
         CODE_SIGNING_ALLOWED: "NO"
-    dependencies:
-      - package: SQLite.swift
-        product: SQLite
     info:
       path: Sources/App/Info.plist
       properties:
@@ -44,8 +41,3 @@ targets:
         LSMinimumSystemVersion: "13.0"
         LSUIElement: true
         NSHighResolutionCapable: true
-
-packages:
-  SQLite.swift:
-    url: https://github.com/stephencelis/SQLite.swift.git
-    from: "0.15.0"

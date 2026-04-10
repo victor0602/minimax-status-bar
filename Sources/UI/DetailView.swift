@@ -8,7 +8,6 @@ struct DetailView: View {
     let onRefresh: () -> Void
 
     @State private var now: Date = Date()
-    @State private var timer: Timer?
     @State private var isExiting = false
     @ObservedObject private var updateState = UpdateState.shared
 
@@ -52,13 +51,8 @@ struct DetailView: View {
                     .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
             )
             .overlay(downloadingOverlay)
-            .onAppear {
-                timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
-                    now = Date()
-                }
-            }
-            .onDisappear {
-                timer?.invalidate()
+            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
+                now = date
             }
     }
 

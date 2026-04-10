@@ -7,6 +7,61 @@ struct ReleaseInfo: Sendable {
     let releaseNotes: String
 }
 
+// MARK: - Download Delegate
+
+private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate {
+    private let destination: URL
+    private let progressHandler: (Double) -> Void
+    private let completionHandler: (Result<URL, Error>) -> Void
+
+    init(destination: URL,
+         progressHandler: @escaping (Double) -> Void,
+         completionHandler: @escaping (Result<URL, Error>) -> Void) {
+        self.destination = destination
+        self.progressHandler = progressHandler
+        self.completionHandler = completionHandler
+        super.init()
+    }
+
+    func urlSession(_ session: URLSession,
+                    downloadTask: URLSessionDownloadTask,
+                    didWriteData bytesWritten: Int64,
+                    totalBytesWritten: Int64,
+                    totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        DispatchQueue.main.async {
+            self.progressHandler(progress)
+        }
+    }
+
+    func urlSession(_ session: URLSession,
+                    downloadTask: URLSessionDownloadTask,
+                    didFinishDownloadingTo location: URL) {
+        do {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: location, to: destination)
+            DispatchQueue.main.async {
+                self.completionHandler(.success(self.destination))
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.completionHandler(.failure(error))
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            DispatchQueue.main.async {
+                self.completionHandler(.failure(error))
+            }
+        }
+    }
+}
+
+// MARK: - UpdateState
+
 final class UpdateState: ObservableObject {
     static let shared = UpdateState()
 
@@ -18,7 +73,7 @@ final class UpdateState: ObservableObject {
     @Published var lastError: String?
     @Published var lastCheckedAt: Date?
 
-    private var progressTimer: Timer?
+    private var currentSession: URLSession?
 
     private init() {}
 
@@ -107,50 +162,33 @@ final class UpdateState: ObservableObject {
 
     private func downloadFile(from url: URL, to destination: URL) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let config = URLSessionConfiguration.default
-            let session = URLSession(configuration: config)
-
-            let task = session.downloadTask(with: url) { [weak self] tempURL, response, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let tempURL = tempURL else {
-                    continuation.resume(throwing: NSError(domain: "UpdateError", code: -1))
-                    return
-                }
-                do {
-                    try? FileManager.default.removeItem(at: destination)
-                    try FileManager.default.copyItem(at: tempURL, to: destination)
-                    continuation.resume()
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-
-            // Poll progress every 0.1s
-            Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak task] timer in
-                guard let self = self, self.isDownloading, let task = task else {
-                    timer.invalidate()
-                    return
-                }
-                let total = task.countOfBytesExpectedToReceive
-                if total > 0 {
-                    let received = Double(task.countOfBytesReceived)
-                    DispatchQueue.main.async {
-                        self.downloadProgress = received / Double(total)
+            let delegate = DownloadDelegate(
+                destination: destination,
+                progressHandler: { [weak self] progress in
+                    self?.downloadProgress = progress
+                },
+                completionHandler: { result in
+                    switch result {
+                    case .success:
+                        continuation.resume()
+                    case .failure(let error):
+                        continuation.resume(throwing: error)
                     }
                 }
-                if task.state == .completed || task.state == .canceling {
-                    timer.invalidate()
-                }
-            }
+            )
 
+            let config = URLSessionConfiguration.default
+            let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+            self.currentSession = session
+
+            let task = session.downloadTask(with: url)
             task.resume()
         }
     }
 
     func cancelDownload() {
+        currentSession?.invalidateAndCancel()
+        currentSession = nil
         isDownloading = false
         downloadProgress = 0.0
         installPhase = ""

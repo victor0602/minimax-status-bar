@@ -36,12 +36,12 @@ enum ModelCategory: String, CaseIterable {
 extension ModelQuota {
     var category: ModelCategory {
         let name = modelName.lowercased()
-        if name.contains("minimax-m") || name.contains("hailuo") {
+        if name.contains("minimax-m") {
             return .text
+        } else if name.contains("hailuo") {
+            return .video
         } else if name.contains("speech") {
             return .speech
-        } else if name.contains("video") {
-            return .video
         } else if name.contains("music") {
             return .music
         } else if name.contains("image") {

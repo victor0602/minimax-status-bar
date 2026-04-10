@@ -1,11 +1,11 @@
 import AppKit
 import SwiftUI
 
-class StatusBarController: @unchecked Sendable {
+@MainActor
+class StatusBarController {
     private var statusItem: NSStatusItem
     private let quotaState = QuotaState()
     private var apiService: MiniMaxAPIService!
-    private var persistenceService: DataPersistenceService!
     private var timer: Timer?
     private var updateTimer: Timer?
     private var popover: NSPopover?
@@ -13,8 +13,6 @@ class StatusBarController: @unchecked Sendable {
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        persistenceService = DataPersistenceService()
-
         let apiKey = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"] ?? ""
 
         if apiKey.isEmpty {
@@ -59,7 +57,6 @@ class StatusBarController: @unchecked Sendable {
         })
         let hostingController = NSHostingController(rootView: contentView)
 
-        // Make background transparent for Liquid Glass effect
         hostingController.view.layer?.backgroundColor = CGColor(gray: 0, alpha: 0)
         hostingController.view.wantsLayer = true
         hostingController.view.layer?.contentsScale = 2.0
@@ -100,13 +97,13 @@ class StatusBarController: @unchecked Sendable {
     }
 
     private func startUpdateTimer() {
-        Task { @MainActor in
+        Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             await UpdateState.shared.checkForUpdate()
         }
 
         updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task {
                 await UpdateState.shared.checkForUpdate()
             }
         }
@@ -114,15 +111,13 @@ class StatusBarController: @unchecked Sendable {
 
     private func refresh() {
         quotaState.isLoading = true
-        quotaState.lastUpdatedAt = Date()
 
         guard let api = apiService else {
             quotaState.isLoading = false
             return
         }
-        let persistence = persistenceService
 
-        Task { [api, persistence, quotaState] in
+        Task { [api] in
             defer {
                 Task { @MainActor in
                     quotaState.isLoading = false
@@ -135,7 +130,6 @@ class StatusBarController: @unchecked Sendable {
                     quotaState.models = models
                     quotaState.lastUpdatedAt = Date()
                     quotaState.lastError = nil
-                    persistence?.saveHistory(models)
                     self.updateStatusBarColor()
                 }
             } catch {
@@ -157,7 +151,6 @@ class StatusBarController: @unchecked Sendable {
             }
         }
         let msg = error.localizedDescription
-        // Strip IP addresses which may appear in server error messages
         return msg.replacingOccurrences(
             of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#,
             with: "[IP]",
@@ -168,7 +161,6 @@ class StatusBarController: @unchecked Sendable {
     private func updateStatusBarColor() {
         guard let button = statusItem.button else { return }
 
-        // Use button title to show status since template icon can't be tinted
         if quotaState.lastError != nil {
             button.title = " 🔴"
             return

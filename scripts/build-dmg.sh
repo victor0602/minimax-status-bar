@@ -3,6 +3,9 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+# Regenerate Xcode project from XcodeGen
+xcodegen generate
+
 SCHEME="minimax-status-bar"
 CONFIG="Release"
 EXPORT_PLIST="scripts/ExportOptions.plist"

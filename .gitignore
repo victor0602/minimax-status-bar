@@ -3,6 +3,9 @@ build/
 *.dmg
 *.xcarchive
 
+# XcodeGen (regenerate with `xcodegen generate`)
+*.xcodeproj/
+
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
