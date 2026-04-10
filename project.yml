@@ -3,12 +3,11 @@ options:
   bundleIdPrefix: com.openclaw
   deploymentTarget:
     macOS: "13.0"
-  xcodeVersion: "16.0"
+  xcodeVersion: "15.0"
 
 settings:
   base:
-    SWIFT_VERSION: "6.0"
-    SWIFT_STRICT_CONCURRENCY: "minimal"
+    SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "13.0"
     CODE_SIGN_IDENTITY: "-"
     PRODUCT_NAME: "MiniMax Status Bar"
