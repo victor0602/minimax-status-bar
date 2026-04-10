@@ -28,144 +28,156 @@ struct DetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            // 内容层
+            VStack(spacing: 0) {
 
-            // ── 标题栏 ──
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("MiniMax")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("API 用量监控")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    HStack(spacing: 6) {
-                        if quotaState.isLoading {
-                            ProgressView().scaleEffect(0.6)
+                // ── 标题栏 ──
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("MiniMax")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("API 用量监控")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
                         }
-                        Button(action: {
-                            print("DEBUG: Refresh button clicked")
-                            onRefresh()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 12, weight: .medium))
-                                .padding(7)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            if quotaState.isLoading {
+                                ProgressView().scaleEffect(0.6)
+                            }
+                            Button(action: {
+                                print("DEBUG: Refresh button clicked")
+                                onRefresh()
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .padding(7)
+                            }
+                            .buttonStyle(.plain)
+                            .glassEffect(.regular.interactive())
+                            .keyboardShortcut("r", modifiers: .command)
+                            .help("刷新数据")
+                        }
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                // ── 最后更新时间 ──
+                if let updated = quotaState.lastUpdatedAt {
+                    Text("最后更新：\(relativeTime(updated))")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 6)
+                }
+
+                // 标题栏分隔线
+                Rectangle()
+                    .fill(.separator)
+                    .frame(height: 0.5)
+                    .opacity(0.5)
+
+                // ── 可滚动区域（模型列表）──
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+
+                        // 无数据状态
+                        if !quotaState.hasData && !quotaState.isLoading {
+                            Group {
+                                if let err = quotaState.lastError {
+                                    Text("错误：\(err)")
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                } else {
+                                    Text("暂无数据，请点击刷新")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                }
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                        }
+
+                        // 分组模型列表
+                        ForEach(grouped, id: \.0) { category, models in
+                            VStack(alignment: .leading, spacing: 0) {
+                                // 分类标题
+                                Text(category.rawValue)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                                    .tracking(0.5)
+                                    .padding(.horizontal, 14)
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 4)
+
+                                // 模型卡片
+                                ForEach(models, id: \.modelName) { model in
+                                    ModelRowView(model: model)
+                                    if model.modelName != models.last?.modelName {
+                                        Divider().padding(.leading, 14)
+                                    }
+                                }
+                            }
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                            .padding(.horizontal, 8)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
+
+                // 底部栏分隔线
+                Rectangle()
+                    .fill(.separator)
+                    .frame(height: 0.5)
+                    .opacity(0.5)
+
+                // ── 底部操作栏 ──
+                GlassEffectContainer {
+                    HStack(spacing: 8) {
+                        Button(action: { NSApplication.shared.terminate(nil) }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "power")
+                                    .font(.system(size: 10))
+                                Text("退出")
+                                    .font(.system(size: 11))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
                         }
                         .buttonStyle(.plain)
                         .glassEffect(.regular.interactive())
-                        .keyboardShortcut("r", modifiers: .command)
-                        .help("刷新数据")
+                        .keyboardShortcut("q", modifiers: .command)
+
+                        Button(action: {
+                            if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            HStack(spacing: 3) {
+                                Text("控制台")
+                                    .font(.system(size: 11))
+                                Image(systemName: "arrow.up.right.square")
+                                    .font(.system(size: 9))
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                        }
+                        .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive())
                     }
                 }
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
-
-            // ── 最后更新时间 ──
-            if let updated = quotaState.lastUpdatedAt {
-                Text("最后更新：\(relativeTime(updated))")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 6)
-            }
-
-            Divider()
-
-            // ── 可滚动区域（模型列表）──
-            ScrollView(.vertical, showsIndicators: true) {
-                LazyVStack(alignment: .leading, spacing: 8) {
-
-                    // 无数据状态
-                    if !quotaState.hasData && !quotaState.isLoading {
-                        Group {
-                            if let err = quotaState.lastError {
-                                Text("错误：\(err)")
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                            } else {
-                                Text("暂无数据，请点击刷新")
-                                    .foregroundColor(.secondary)
-                                    .font(.caption)
-                            }
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                    }
-
-                    // 分组模型列表
-                    ForEach(grouped, id: \.0) { category, models in
-                        VStack(alignment: .leading, spacing: 0) {
-                            // 分类标题
-                            Text(category.rawValue)
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-                                .tracking(0.5)
-                                .padding(.horizontal, 14)
-                                .padding(.top, 8)
-                                .padding(.bottom, 4)
-
-                            // 模型卡片
-                            ForEach(models, id: \.modelName) { model in
-                                ModelRowView(model: model)
-                                if model.modelName != models.last?.modelName {
-                                    Divider().padding(.leading, 14)
-                                }
-                            }
-                        }
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-                        .padding(.horizontal, 8)
-                    }
-                }
+                .padding(.horizontal, 14)
                 .padding(.vertical, 8)
             }
-            .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
-
-            Divider()
-
-            // ── 底部操作栏 ──
-            GlassEffectContainer {
-                HStack(spacing: 8) {
-                    Button(action: { NSApplication.shared.terminate(nil) }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "power")
-                                .font(.system(size: 10))
-                            Text("退出")
-                                .font(.system(size: 11))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive())
-                    .keyboardShortcut("q", modifiers: .command)
-
-                    Button(action: {
-                        if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 3) {
-                            Text("控制台")
-                                .font(.system(size: 11))
-                            Image(systemName: "arrow.up.right.square")
-                                .font(.system(size: 9))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive())
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
         }
         .frame(width: 320)
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
         .onAppear {
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 now = Date()

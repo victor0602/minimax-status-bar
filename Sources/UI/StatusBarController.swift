@@ -36,17 +36,19 @@ class StatusBarController: @unchecked Sendable {
         popover?.contentSize = NSSize(width: 320, height: 450)
         popover?.behavior = .transient
         popover?.animates = true
+        popover?.setValue(true, forKeyPath: "shouldHideAnchor")
 
         let contentView = MenuContentView(quotaState: quotaState, onRefresh: { [weak self] in
             self?.refresh()
         })
-        popover?.contentViewController = NSHostingController(rootView: contentView)
+        let hostingController = NSHostingController(rootView: contentView)
 
-        // Optimize for 120Hz promotion displays
-        if let view = popover?.contentViewController?.view {
-            view.wantsLayer = true
-            view.layer?.contentsScale = 2.0
-        }
+        // Make background transparent for Liquid Glass effect
+        hostingController.view.layer?.backgroundColor = CGColor(gray: 0, alpha: 0)
+        hostingController.view.wantsLayer = true
+        hostingController.view.layer?.contentsScale = 2.0
+
+        popover?.contentViewController = hostingController
     }
 
     @objc private func togglePopover() {
