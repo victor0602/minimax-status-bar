@@ -59,7 +59,6 @@ struct DetailView: View {
                                 ProgressView().scaleEffect(0.6)
                             }
                             Button(action: {
-                                print("DEBUG: Refresh button clicked")
                                 onRefresh()
                             }) {
                                 Image(systemName: "arrow.clockwise")

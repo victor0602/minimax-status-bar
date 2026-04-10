@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		04714573C47249FFE1CC6493 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = BCCA49A3979F1025A4EE88E8 /* SQLite */; };
-		11794449878E26C0FD0C8029 /* CompactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 589503B630FEE25C3795AC68 /* CompactView.swift */; };
-		171F99EBBBBA19D92AB32444 /* APIStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B4C96006206095C1C7B330A /* APIStats.swift */; };
 		3559F37D252A6F0750B2E727 /* ModelQuota.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3558B20B5CCC174CC5C1CC6 /* ModelQuota.swift */; };
 		3B83D511142D8A0A9B02C598 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0984B5A127D4C5CC64950AF /* AppDelegate.swift */; };
 		3D737E5ECA2200115336AA52 /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6619C8EDB2F444D085AD990 /* DetailView.swift */; };
@@ -24,9 +22,7 @@
 /* Begin PBXFileReference section */
 		03F4BB9F393505EA9BF88AB0 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		1560F5E534868954D00B322F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		1B4C96006206095C1C7B330A /* APIStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIStats.swift; sourceTree = "<group>"; };
 		2BD7581D6F28D076B3AE4677 /* minimax-status-bar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "minimax-status-bar.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		589503B630FEE25C3795AC68 /* CompactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactView.swift; sourceTree = "<group>"; };
 		61D7E4493467707EE04D8E23 /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		8B7D845F21F5212180A59322 /* MiniMaxAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniMaxAPIService.swift; sourceTree = "<group>"; };
 		8CAA0C5F69D2782AAA85CD06 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
@@ -52,7 +48,6 @@
 		15763707A84FE459C9B6288A /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				589503B630FEE25C3795AC68 /* CompactView.swift */,
 				A6619C8EDB2F444D085AD990 /* DetailView.swift */,
 				8CAA0C5F69D2782AAA85CD06 /* MenuContentView.swift */,
 				61D7E4493467707EE04D8E23 /* StatusBarController.swift */,
@@ -100,7 +95,6 @@
 		7AC2BB7E29174DEC7724E24D /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				1B4C96006206095C1C7B330A /* APIStats.swift */,
 				A3558B20B5CCC174CC5C1CC6 /* ModelQuota.swift */,
 				F877809CB13EF99BCF1EED9C /* QuotaState.swift */,
 			);
@@ -179,9 +173,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				171F99EBBBBA19D92AB32444 /* APIStats.swift in Sources */,
 				3B83D511142D8A0A9B02C598 /* AppDelegate.swift in Sources */,
-				11794449878E26C0FD0C8029 /* CompactView.swift in Sources */,
 				91217DC2B3E8A59EC4A327E9 /* DataPersistenceService.swift in Sources */,
 				3D737E5ECA2200115336AA52 /* DetailView.swift in Sources */,
 				72B75F1F65463444F623D3AF /* MenuContentView.swift in Sources */,

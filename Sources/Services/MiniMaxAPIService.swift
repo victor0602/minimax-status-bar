@@ -41,13 +41,6 @@ class MiniMaxAPIService: @unchecked Sendable {
             throw MiniMaxAPIError.serverError(httpResponse.statusCode)
         }
 
-        // 调试：打印原始响应
-        if let jsonString = String(data: data, encoding: .utf8) {
-            print("🔍 Raw API response: \(jsonString)")
-            let path = "/tmp/minimax_raw_response.json"
-            try? jsonString.write(toFile: path, atomically: true, encoding: .utf8)
-        }
-
         let decoded = try JSONDecoder().decode(QuotaResponse.self, from: data)
 
         if let baseResp = decoded.baseResp, baseResp.statusCode != 0 {

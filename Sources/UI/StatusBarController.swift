@@ -88,7 +88,6 @@ class StatusBarController: @unchecked Sendable {
     }
 
     private func refresh() {
-        print("DEBUG: refresh() called")
         quotaState.isLoading = true
         quotaState.lastUpdatedAt = Date()
 
@@ -99,7 +98,6 @@ class StatusBarController: @unchecked Sendable {
             do {
                 let models = try await api.fetchQuota()
                 await MainActor.run {
-                    print("DEBUG: refresh() completed with \(models.count) models")
                     quotaState.models = models
                     quotaState.lastUpdatedAt = Date()
                     quotaState.lastError = nil
@@ -108,7 +106,6 @@ class StatusBarController: @unchecked Sendable {
                 }
             } catch {
                 await MainActor.run {
-                    print("DEBUG: refresh() failed: \(error.localizedDescription)")
                     quotaState.lastError = error.localizedDescription
                     quotaState.isLoading = false
                 }
