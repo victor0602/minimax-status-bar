@@ -109,7 +109,6 @@ struct ModelQuota {
     let remainsTimeMs: Int64
     let weeklyStartTime: Date
     let weeklyEndTime: Date
-    let updatedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
         // API 字段 usage_count 实际表示剩余次数（而非已用）
@@ -130,8 +129,7 @@ struct ModelQuota {
             weeklyRemaining: raw.currentWeeklyUsageCount,
             remainsTimeMs: raw.remainsTime,
             weeklyStartTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyStartTime) / 1000),
-            weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000),
-            updatedAt: Date()
+            weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000)
         )
     }
 
