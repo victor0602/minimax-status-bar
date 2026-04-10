@@ -10,7 +10,7 @@ enum MiniMaxAPIError: Error {
     case apiError(String)
 }
 
-class MiniMaxAPIService: @unchecked Sendable {
+class MiniMaxAPIService: Sendable {
     private let apiKey: String
     private let baseURL = "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains"
 

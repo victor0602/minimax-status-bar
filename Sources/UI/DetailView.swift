@@ -9,7 +9,7 @@ struct DetailView: View {
 
     @State private var now: Date = Date()
     @State private var isExiting = false
-    @ObservedObject private var updateState = UpdateState.shared
+    @StateObject private var updateState = UpdateState.shared
 
     private func triggerExitAnimation() {
         withAnimation(.spring(duration: 0.35, bounce: 0.0)) {

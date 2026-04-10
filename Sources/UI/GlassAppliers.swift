@@ -7,7 +7,7 @@ import SwiftUI
 // to ensure cross-SDK compatibility.
 
 @MainActor
-final class GlassEffectApplier: @unchecked Sendable {
+final class GlassEffectApplier {
     static let shared = GlassEffectApplier()
     private init() {}
 
@@ -19,7 +19,7 @@ final class GlassEffectApplier: @unchecked Sendable {
 }
 
 @MainActor
-final class ButtonStyleApplier: @unchecked Sendable {
+final class ButtonStyleApplier {
     static let shared = ButtonStyleApplier()
     private init() {}
 
@@ -31,7 +31,7 @@ final class ButtonStyleApplier: @unchecked Sendable {
 }
 
 @MainActor
-final class CardStyleApplier: @unchecked Sendable {
+final class CardStyleApplier {
     static let shared = CardStyleApplier()
     private init() {}
 

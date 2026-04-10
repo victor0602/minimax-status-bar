@@ -2,14 +2,17 @@ import Foundation
 
 actor UpdateService {
     private let currentVersion: String
+    private let githubRepo: String
 
-    init() {
+    init(githubRepo: String = AppConfig.githubRepo) {
+        self.githubRepo = githubRepo
         let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         self.currentVersion = bundleVersion.replacingOccurrences(of: "v", with: "")
     }
 
     func checkForUpdate() async -> ReleaseInfo? {
-        let url = URL(string: "https://api.github.com/repos/victor0602/minimax-status-bar/releases/latest")!
+        let urlString = "https://api.github.com/repos/\(githubRepo)/releases/latest"
+        guard let url = URL(string: urlString) else { return nil }
 
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")

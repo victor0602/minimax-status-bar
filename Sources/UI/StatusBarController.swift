@@ -169,11 +169,15 @@ class StatusBarController {
     }
 
     private func startPolling(interval: TimeInterval = 60) {
+        setupTimer(interval: interval)
+        refresh()
+    }
+
+    private func setupTimer(interval: TimeInterval) {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
-        refresh()
     }
 
     private func startUpdateTimer() {
@@ -250,7 +254,7 @@ class StatusBarController {
     private func adjustPollingInterval() {
         guard let primary = quotaState.primaryModel else { return }
         let interval: TimeInterval = primary.remainingPercent < 10 ? 10 : 60
-        startPolling(interval: interval)
+        setupTimer(interval: interval)
     }
 
     private func sanitizedError(_ error: Error) -> String {

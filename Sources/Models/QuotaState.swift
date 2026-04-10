@@ -1,6 +1,7 @@
 import Foundation
 
-class QuotaState: ObservableObject, @unchecked Sendable {
+@MainActor
+class QuotaState: ObservableObject {
     @Published var models: [ModelQuota] = []
     @Published var isLoading: Bool = false
     @Published var lastError: String?

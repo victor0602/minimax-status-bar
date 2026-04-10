@@ -204,4 +204,5 @@ final class UpdateState: ObservableObject {
         task.waitUntilExit()
         return task.terminationStatus
     }
+
 }
