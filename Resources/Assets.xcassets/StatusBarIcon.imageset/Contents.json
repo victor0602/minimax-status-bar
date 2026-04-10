@@ -1,7 +1,19 @@
 {
   "images" : [
     {
-      "idiom" : "universal"
+      "filename" : "StatusBarIcon.png",
+      "idiom" : "mac",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "StatusBarIcon@2x.png",
+      "idiom" : "mac",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "StatusBarIcon@3x.png",
+      "idiom" : "mac",
+      "scale" : "3x"
     }
   ],
   "info" : {

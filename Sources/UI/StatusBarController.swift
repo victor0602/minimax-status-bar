@@ -35,8 +35,13 @@ class StatusBarController: @unchecked Sendable {
 
     private func setupStatusBarButton() {
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "chart.bar.fill", accessibilityDescription: "MiniMax Status")
-            button.image?.isTemplate = true
+            if let image = NSImage(named: "StatusBarIcon") {
+                image.isTemplate = true
+                button.image = image
+            } else {
+                button.image = NSImage(systemSymbolName: "chart.bar.fill", accessibilityDescription: "MiniMax Status")
+                button.image?.isTemplate = true
+            }
             button.action = #selector(togglePopover)
             button.target = self
         }
@@ -163,23 +168,24 @@ class StatusBarController: @unchecked Sendable {
     private func updateStatusBarColor() {
         guard let button = statusItem.button else { return }
 
+        // Use button title to show status since template icon can't be tinted
         if quotaState.lastError != nil {
-            button.contentTintColor = .systemRed
+            button.title = " 🔴"
             return
         }
 
         guard let primary = quotaState.primaryModel else {
-            button.contentTintColor = .systemGray
+            button.title = ""
             return
         }
 
         let remainingPercent = primary.remainingPercent
         if remainingPercent > 30 {
-            button.contentTintColor = .systemGreen
+            button.title = " 🟢"
         } else if remainingPercent > 10 {
-            button.contentTintColor = .systemYellow
+            button.title = " 🟡"
         } else {
-            button.contentTintColor = .systemRed
+            button.title = " 🔴"
         }
     }
 }
