@@ -1,7 +1,7 @@
 import Foundation
 import SQLite
 
-class DataPersistenceService {
+class DataPersistenceService: @unchecked Sendable {
     private var db: Connection?
 
     private let usageHistory = Table("usage_history")

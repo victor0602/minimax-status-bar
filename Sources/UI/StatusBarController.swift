@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-class StatusBarController {
+class StatusBarController: @unchecked Sendable {
     private var statusItem: NSStatusItem
     private let quotaState = QuotaState()
     private var apiService: MiniMaxAPIService!
@@ -86,24 +86,29 @@ class StatusBarController {
     }
 
     private func refresh() {
+        print("DEBUG: refresh() called")
         quotaState.isLoading = true
+        quotaState.lastUpdatedAt = Date()
 
-        Task {
+        guard let api = apiService else { return }
+        let persistence = persistenceService
+
+        Task { [api, persistence, quotaState] in
             do {
-                let models = try await self.apiService.fetchQuota()
+                let models = try await api.fetchQuota()
                 await MainActor.run {
-                    self.quotaState.models = models
-                    self.quotaState.lastUpdatedAt = Date()
-                    self.quotaState.lastError = nil
-                    self.quotaState.isLoading = false
-                    self.updateStatusBarColor()
+                    print("DEBUG: refresh() completed with \(models.count) models")
+                    quotaState.models = models
+                    quotaState.lastUpdatedAt = Date()
+                    quotaState.lastError = nil
+                    quotaState.isLoading = false
+                    persistence?.saveHistory(models)
                 }
-                self.persistenceService.saveHistory(models)
             } catch {
                 await MainActor.run {
-                    self.quotaState.lastError = error.localizedDescription
-                    self.quotaState.isLoading = false
-                    self.updateStatusBarColor()
+                    print("DEBUG: refresh() failed: \(error.localizedDescription)")
+                    quotaState.lastError = error.localizedDescription
+                    quotaState.isLoading = false
                 }
             }
         }

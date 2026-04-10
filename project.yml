@@ -2,13 +2,13 @@ name: minimax-status-bar
 options:
   bundleIdPrefix: com.openclaw
   deploymentTarget:
-    macOS: "13.0"
-  xcodeVersion: "15.0"
+    macOS: "26.0"
+  xcodeVersion: "17.0"
 
 settings:
   base:
-    SWIFT_VERSION: "5.9"
-    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
     CODE_SIGN_IDENTITY: "-"
     PRODUCT_NAME: "MiniMax Status Bar"
 
@@ -41,7 +41,7 @@ targets:
         CFBundleShortVersionString: "1.0.0"
         CFBundlePackageType: APPL
         CFBundleExecutable: "MiniMax Status Bar"
-        LSMinimumSystemVersion: "13.0"
+        LSMinimumSystemVersion: "26.0"
         LSUIElement: true
         NSHighResolutionCapable: true
 

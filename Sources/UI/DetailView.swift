@@ -4,6 +4,9 @@ struct DetailView: View {
     let quotaState: QuotaState
     let onRefresh: () -> Void
 
+    @State private var now: Date = Date()
+    @State private var timer: Timer?
+
     private var grouped: [(ModelCategory, [ModelQuota])] {
         let grouped = Dictionary(grouping: quotaState.models) { $0.category }
         return ModelCategory.allCases
@@ -15,9 +18,13 @@ struct DetailView: View {
     }
 
     private func relativeTime(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        let diff = Int(now.timeIntervalSince(date))
+        if diff < 10 { return "刚刚" }
+        if diff < 60 { return "\(diff)s 前" }
+        if diff < 3600 { return "\(diff / 60)m 前" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        return fmt.string(from: date)
     }
 
     var body: some View {
@@ -38,12 +45,18 @@ struct DetailView: View {
                         if quotaState.isLoading {
                             ProgressView().scaleEffect(0.6)
                         }
-                        Button(action: onRefresh) {
+                        Button(action: {
+                            print("DEBUG: Refresh button clicked")
+                            onRefresh()
+                        }) {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 13))
+                                .font(.system(size: 12, weight: .medium))
+                                .padding(7)
                         }
                         .buttonStyle(.plain)
+                        .glassEffect(.regular.interactive())
                         .keyboardShortcut("r", modifiers: .command)
+                        .help("刷新数据")
                     }
                 }
             }
@@ -104,8 +117,7 @@ struct DetailView: View {
                                 }
                             }
                         }
-                        .background(Color.primary.opacity(0.03))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                         .padding(.horizontal, 8)
                     }
                 }
@@ -116,32 +128,52 @@ struct DetailView: View {
             Divider()
 
             // ── 底部操作栏 ──
-            HStack {
-                Button(action: { NSApplication.shared.terminate(nil) }) {
-                    Label("退出", systemImage: "power")
-                        .font(.system(size: 11))
-                        .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-                }
-                .buttonStyle(.plain)
-                .keyboardShortcut("q", modifiers: .command)
-
-                Spacer()
-
-                Button(action: {
-                    if let url = URL(string: "https://platform.minimax.io/user-center/payment/token-plan") {
-                        NSWorkspace.shared.open(url)
+            GlassEffectContainer {
+                HStack(spacing: 8) {
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "power")
+                                .font(.system(size: 10))
+                            Text("退出")
+                                .font(.system(size: 11))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                     }
-                }) {
-                    Label("控制台", systemImage: "arrow.up.right.square")
-                        .font(.system(size: 11))
-                        .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive())
+                    .keyboardShortcut("q", modifiers: .command)
+
+                    Button(action: {
+                        if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 3) {
+                            Text("控制台")
+                                .font(.system(size: 11))
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 9))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive())
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
         }
         .frame(width: 320)
+        .onAppear {
+            timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                now = Date()
+            }
+        }
+        .onDisappear {
+            timer?.invalidate()
+        }
     }
 }
 
