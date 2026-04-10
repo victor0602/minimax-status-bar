@@ -39,15 +39,27 @@ Then re-open the app.
 
 ### Configure API Key
 
-The app reads the API key from the `MINIMAX_API_KEY` environment variable automatically — no in-app configuration needed.
+The app automatically resolves the API key from multiple sources (in priority order):
 
-To set it permanently, add to your shell config:
+1. Environment variable `MINIMAX_API_KEY`
+2. `~/.openclaw/.env` — looks for `MINIMAX_API_KEY=sk-...`
+3. `~/.openclaw/openclaw.json` — looks for `models.providers.minimax.apiKey` or `env.MINIMAX_API_KEY`
+
+**OpenClaw users:** Configure MiniMax in OpenClaw and launch the app — no extra setup needed.
+
+**Other users:** Set the environment variable permanently:
 ```bash
 echo 'export MINIMAX_API_KEY="your_key_here"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-Then launch MiniMax Status Bar. If the key is not configured, the app will display a friendly error message.
+Or create `~/.openclaw/.env`:
+```bash
+mkdir -p ~/.openclaw
+echo 'MINIMAX_API_KEY=your_key_here' > ~/.openclaw/.env
+```
+
+If no key is found, the app displays a friendly error with setup instructions.
 
 ### Build from Source
 
@@ -66,7 +78,7 @@ Or open `minimax-status-bar.xcodeproj` in Xcode and run.
 
 | Variable | Description |
 |----------|-------------|
-| `MINIMAX_API_KEY` | Your MiniMax API key (CN region: api.minimaxi.com) |
+| `MINIMAX_API_KEY` | Your MiniMax API key. Also read from `~/.openclaw/.env` and `~/.openclaw/openclaw.json` |
 
 ## Usage
 

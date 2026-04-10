@@ -13,10 +13,21 @@ class StatusBarController {
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let apiKey = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"] ?? ""
+        let apiKey = resolveAPIKey()
 
         if apiKey.isEmpty {
-            quotaState.lastError = "未找到 MINIMAX_API_KEY 环境变量\n\n请在终端执行：\nexport MINIMAX_API_KEY=your_key\n然后重启 app"
+            quotaState.lastError = """
+            未找到 MiniMax API Key
+
+            自动查找路径：
+            1. 环境变量 MINIMAX_API_KEY
+            2. ~/.openclaw/.env
+            3. ~/.openclaw/openclaw.json
+
+            OpenClaw 用户重启 app 即可自动读取
+            其他用户请在终端执行：
+            export MINIMAX_API_KEY=your_key
+            """
             quotaState.isLoading = false
         } else {
             apiService = MiniMaxAPIService(apiKey: apiKey)
@@ -29,6 +40,55 @@ class StatusBarController {
         }
 
         startUpdateTimer()
+    }
+
+    // MARK: - API Key Resolution
+
+    private func resolveAPIKey() -> String {
+        // 1. Environment variable
+        if let key = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"], !key.isEmpty {
+            return key
+        }
+
+        // 2. ~/.openclaw/.env file
+        let envPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".openclaw/.env")
+        if let content = try? String(contentsOf: envPath, encoding: .utf8) {
+            for line in content.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("MINIMAX_API_KEY=") {
+                    var value = String(trimmed.dropFirst("MINIMAX_API_KEY=".count))
+                    value = value.trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
+                    if !value.isEmpty {
+                        return value
+                    }
+                }
+            }
+        }
+
+        // 3. ~/.openclaw/openclaw.json
+        let jsonPath = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".openclaw/openclaw.json")
+        guard let data = try? Data(contentsOf: jsonPath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return ""
+        }
+
+        // Path: models.providers.minimax.apiKey
+        if let models = json["models"] as? [String: Any],
+           let providers = models["providers"] as? [String: Any],
+           let minimax = providers["minimax"] as? [String: Any],
+           let apiKey = minimax["apiKey"] as? String, !apiKey.isEmpty {
+            return apiKey
+        }
+
+        // Path: env.MINIMAX_API_KEY
+        if let env = json["env"] as? [String: Any],
+           let apiKey = env["MINIMAX_API_KEY"] as? String, !apiKey.isEmpty {
+            return apiKey
+        }
+
+        return ""
     }
 
     private func setupStatusBarButton() {
@@ -145,7 +205,18 @@ class StatusBarController {
         if let apiError = error as? MiniMaxAPIError {
             switch apiError {
             case .missingAPIKey:
-                return "未找到 MINIMAX_API_KEY 环境变量\n\n请在终端执行：\nexport MINIMAX_API_KEY=your_key\n然后重启 app"
+                return """
+                未找到 MiniMax API Key
+
+                自动查找路径：
+                1. 环境变量 MINIMAX_API_KEY
+                2. ~/.openclaw/.env
+                3. ~/.openclaw/openclaw.json
+
+                OpenClaw 用户重启 app 即可自动读取
+                其他用户请在终端执行：
+                export MINIMAX_API_KEY=your_key
+                """
             default:
                 break
             }
