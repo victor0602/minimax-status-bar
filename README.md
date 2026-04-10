@@ -47,6 +47,18 @@ open ~/Library/Developer/Xcode/DerivedData/minimax-status-bar-*/Build/Products/D
 
 Or open `minimax-status-bar.xcodeproj` in Xcode and run.
 
+### Download Release
+
+1. Download the `.dmg` file from [GitHub Releases](https://github.com/victor0602/minimax-status-bar/releases)
+2. Open the DMG and drag **MiniMax Status Bar** into **Applications**
+3. On first launch, if you see a security warning, go to **System Settings → Privacy & Security → Still Open**
+
+If installation shows "file damaged":
+```bash
+xattr -cr "/Applications/MiniMax Status Bar.app"
+```
+Then re-open the app.
+
 ### Environment Variables
 
 | Variable | Description |

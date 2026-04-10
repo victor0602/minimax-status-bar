@@ -33,10 +33,18 @@ xcodebuild -exportArchive \
     -exportPath "${ARTIFACTS_DIR}" \
     -exportOptionsPlist "${EXPORT_PLIST}"
 
-# Step 3: Package into .dmg
+# Step 3: Copy .app to staging
 cp -R "${ARTIFACTS_DIR}/${APP_FILENAME}" "${STAGING_DIR}/"
+
+# Step 4: Ad-hoc codesign to resolve Gatekeeper "file damaged" warning
+codesign --force --deep --sign - \
+  --options runtime \
+  "${STAGING_DIR}/${APP_FILENAME}"
+
+# Step 5: Create symlink to Applications
 ln -sf /Applications "${STAGING_DIR}/Applications"
 
+# Step 6: Package into .dmg
 hdiutil create \
     -volname "${APP_NAME}" \
     -srcfolder "${STAGING_DIR}" \
