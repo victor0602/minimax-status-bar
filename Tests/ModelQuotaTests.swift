@@ -22,6 +22,7 @@ final class ModelQuotaTests: XCTestCase {
         XCTAssertEqual(q.weeklyConsumedCount, 600)
         XCTAssertEqual(q.weeklyRemainingCount, 400)
         XCTAssertEqual(q.statusBarAbbreviation, "2.7·")
+        XCTAssertEqual(q.displayName, "MiniMax M2.7")
     }
 
     func testStatusBarAbbreviationForVideo() {

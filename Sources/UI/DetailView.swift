@@ -481,7 +481,7 @@ struct DetailView: View {
                 )
             }
 
-            Text("MIT License · © 2025 Victor")
+            Text("MIT License · © \(Calendar.current.component(.year, from: Date())) Victor")
                 .font(.system(size: 9))
                 .foregroundColor(Color(nsColor: .quaternaryLabelColor))
                 .frame(maxWidth: .infinity, alignment: .center)

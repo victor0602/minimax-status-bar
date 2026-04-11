@@ -3,6 +3,7 @@ import UserNotifications
 
 class NotificationService {
     static let shared = NotificationService()
+    private static let lowQuotaNotificationIdentifier = "com.openclaw.minimax-status-bar.lowQuota.primary"
     /// Only the **primary** model (same pick order as menu bar) triggers low-quota alerts — avoids modal spam for M2.7-first workflows.
     private var notifiedPrimaryKey: String?
 
@@ -52,7 +53,7 @@ class NotificationService {
         content.body = body
         content.sound = .default
         let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
+            identifier: Self.lowQuotaNotificationIdentifier,
             content: content,
             trigger: nil
         )

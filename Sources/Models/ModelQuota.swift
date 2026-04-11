@@ -171,6 +171,8 @@ struct ModelQuota {
 
     var displayName: String {
         switch modelName.lowercased() {
+        case let n where n.contains("m2.7"):
+            return "MiniMax M2.7"
         case let n where n.contains("minimax-m"):
             return "MiniMax-M"
         case let n where n.contains("speech-hd"):

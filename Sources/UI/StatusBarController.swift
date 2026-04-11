@@ -361,6 +361,6 @@ class StatusBarController {
 
         let resetHint = primary.remainsTimeFormatted
         let dataStatus = quotaState.hasData ? "" : "（缓存，可能过期）"
-        button.toolTip = "\(primary.displayName) · 剩余 \(pct)% · 重置 \(resetHint) \(dataStatus) · 下拉查看全部模态"
+        button.toolTip = "\(primary.displayName) · 剩余 \(displayPct)% · 重置 \(resetHint) \(dataStatus) · 下拉查看全部模态"
     }
 }
