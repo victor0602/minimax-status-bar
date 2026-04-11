@@ -348,14 +348,16 @@ class StatusBarController {
         // We have data (live or cached)
         let primary = primaryModel!
         let pct = primary.remainingPercent
-        let dot = pct > 30 ? "🟢" : (pct > 10 ? "🟡" : "🔴")
+        // Align with website rounding: if remaining ≥ 99%, display as 100% to match website "0% used"
+        let displayPct = pct >= 99 ? 100 : pct
+        let dot = displayPct > 30 ? "🟢" : (displayPct > 10 ? "🟡" : "🔴")
         let tag = primary.statusBarAbbreviation
 
         // If showing cached data (no live data available), append ~ to indicate stale data
         let staleIndicator = quotaState.hasData ? "" : "~"
         button.title = tag.isEmpty
-            ? " \(dot) \(staleIndicator)\(pct)%"
-            : " \(dot) \(tag)\(staleIndicator)\(pct)%"
+            ? " \(dot) \(staleIndicator)\(displayPct)%"
+            : " \(dot) \(tag)\(staleIndicator)\(displayPct)%"
 
         let resetHint = primary.remainsTimeFormatted
         let dataStatus = quotaState.hasData ? "" : "（缓存，可能过期）"
