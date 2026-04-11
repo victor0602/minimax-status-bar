@@ -9,6 +9,7 @@ struct DetailView: View {
 
     @State private var now: Date = Date()
     @State private var isExiting = false
+    @State private var showAbout = false
     @StateObject private var updateState = UpdateState.shared
 
     private func triggerExitAnimation() {
@@ -20,8 +21,17 @@ struct DetailView: View {
         }
     }
 
+    /// Returns the models to display: live data if available, otherwise cached data
+    private var displayModels: [ModelQuota] {
+        // If we have live data, use it; otherwise fall back to cache
+        if quotaState.hasData {
+            return quotaState.models
+        }
+        return quotaState.cachedModels
+    }
+
     private var grouped: [(ModelCategory, [ModelQuota])] {
-        let grouped = Dictionary(grouping: quotaState.models) { $0.category }
+        let grouped = Dictionary(grouping: displayModels) { $0.category }
         return ModelCategory.allCases
             .compactMap { category in
                 guard let models = grouped[category], !models.isEmpty else { return nil }
@@ -61,7 +71,15 @@ struct DetailView: View {
         VStack(spacing: 0) {
             headerBar
             lastUpdatedText
+            offlineCacheBanner
             Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+            if showAbout {
+                aboutPanel
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+            }
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if let reason = quotaState.setupReason {
@@ -88,9 +106,18 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("MiniMax")
                         .font(.system(size: 13, weight: .semibold))
-                    Text(quotaState.setupReason != nil ? "用量感知 · 待连接" : "Token Plan 用量")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                    Button(action: { withAnimation(.spring(duration: 0.25)) { showAbout.toggle() } }) {
+                        HStack(spacing: 3) {
+                            Text(quotaState.setupReason != nil ? "用量感知 · 待连接" : "Token Plan 用量")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                            Image(systemName: showAbout ? "chevron.up" : "info.circle")
+                                .font(.system(size: 8))
+                                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("关于此应用")
                 }
                 Spacer()
                 HStack(spacing: 6) {
@@ -132,11 +159,34 @@ struct DetailView: View {
         }
     }
 
+    // MARK: - Offline Cache Banner
+
+    /// Shows cached data age when API fails but cache exists
+    @ViewBuilder
+    private var offlineCacheBanner: some View {
+        // Show banner when: has error, no live data, but has cached data
+        if quotaState.lastError != nil, !quotaState.hasData, quotaState.hasCachedData, let cachedAt = quotaState.cachedAt {
+            let ageMinutes = Int(now.timeIntervalSince(cachedAt) / 60)
+            let ageText = ageMinutes < 1 ? "刚刚" : "\(ageMinutes) 分钟前"
+            HStack(spacing: 4) {
+                Image(systemName: "wifi.slash")
+                    .font(.system(size: 9))
+                Text("数据来自 \(ageText)，当前无法连接")
+                    .font(.system(size: 10))
+            }
+            .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+        }
+    }
+
     // MARK: - Empty State
 
     @ViewBuilder
     private var emptyStateView: some View {
-        if quotaState.setupReason == nil, !quotaState.hasData, !quotaState.isLoading {
+        // Show empty state only when: no setup reason, no live data, no cache, and not loading
+        if quotaState.setupReason == nil, !quotaState.hasData, !quotaState.hasCachedData, !quotaState.isLoading {
             VStack(spacing: 12) {
                 Image(systemName: quotaState.lastError != nil
                       ? "exclamationmark.triangle"
@@ -196,8 +246,17 @@ struct DetailView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
+                // Explanatory text for Unknown category
+                if category == .unknown {
+                    Text("以下模型暂未识别分类，数据仍然有效")
+                        .font(.system(size: 9))
+                        .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 4)
+                }
+
                 ForEach(models, id: \.modelName) { model in
-                    ModelRowView(model: model)
+                    ModelRowView(model: model, showUnrecognizedTag: category == .unknown)
                     if model.modelName != models.last?.modelName {
                         Divider().padding(.leading, 14)
                     }
@@ -339,18 +398,120 @@ struct DetailView: View {
 
     private var versionBar: some View {
         let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        return HStack {
+        return HStack(spacing: 6) {
+            // 版本号
             Text("v\(currentVersion)")
                 .font(.system(size: 9))
                 .foregroundColor(Color(nsColor: .quaternaryLabelColor))
+
+            // 可用更新提示
             if let release = updateState.latestRelease {
-                Text("→ v\(release.version)")
+                Text("→ v\(release.version) 可用")
                     .font(.system(size: 9))
                     .foregroundColor(.blue.opacity(0.7))
             }
+
+            Spacer()
+
+            // GitHub 链接
+            Button(action: {
+                if let url = URL(string: "https://github.com/victor0602/minimax-status-bar") {
+                    NSWorkspace.shared.open(url)
+                }
+            }) {
+                HStack(spacing: 2) {
+                    Image(systemName: "curlybraces")
+                        .font(.system(size: 8))
+                    Text("GitHub")
+                        .font(.system(size: 9))
+                }
+                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+            }
+            .buttonStyle(.plain)
+            .help("在 GitHub 上查看源码")
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity)
         .padding(.bottom, 4)
+    }
+
+    // MARK: - About Panel
+
+    /// 关于面板：长按版本号触发，显示 App 简介与相关链接
+    private var aboutPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                if let icon = NSImage(named: "StatusBarIcon") {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                        .opacity(0.85)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("MiniMax Status Bar")
+                        .font(.system(size: 12, weight: .semibold))
+                    let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+                    Text("v\(currentVersion) · macOS 13.0+")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Text("为重度使用 MiniMax Token Plan 的开发者而生。菜单栏一眼感知配额，零配置，零打扰。")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                aboutLink(
+                    icon: "doc.text",
+                    title: "MiniMax Token Plan 控制台",
+                    url: "https://platform.minimaxi.com/user-center/payment/token-plan"
+                )
+                aboutLink(
+                    icon: "curlybraces",
+                    title: "GitHub 源码",
+                    url: "https://github.com/victor0602/minimax-status-bar"
+                )
+                aboutLink(
+                    icon: "arrow.down.circle",
+                    title: "检查更新",
+                    url: "https://github.com/victor0602/minimax-status-bar/releases/latest"
+                )
+            }
+
+            Text("MIT License · © 2025 Victor")
+                .font(.system(size: 9))
+                .foregroundColor(Color(nsColor: .quaternaryLabelColor))
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 2)
+        }
+        .padding(14)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
+    }
+
+    private func aboutLink(icon: String, title: String, url: String) -> some View {
+        Button(action: {
+            if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        }) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10))
+                    .frame(width: 14)
+                    .foregroundColor(.secondary)
+                Text(title)
+                    .font(.system(size: 10))
+                    .foregroundColor(.primary)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -410,15 +571,30 @@ struct SkeletonRowView: View {
 
 struct ModelRowView: View {
     let model: ModelQuota
+    /// Shows "未适配" tag next to model name for unrecognized models
+    var showUnrecognizedTag: Bool = false
     @State private var isExpanded = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
-                Text(model.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                HStack(spacing: 4) {
+                    Text(model.displayName)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    if showUnrecognizedTag {
+                        Text("未适配")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(Color(nsColor: .secondaryLabelColor))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color(nsColor: .tertiaryLabelColor).opacity(0.2))
+                            )
+                    }
+                }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("剩余 \(model.remainingPercent)%")

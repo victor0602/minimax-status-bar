@@ -14,6 +14,14 @@ class NotificationService {
         ) { _, _ in }
     }
 
+    /// Checks primary model quota and sends notification when low.
+    ///
+    /// Notification policy:
+    /// - **< 10%**: Critical - send one-time notification, remember which model was notified
+    /// - **10%–19%**: Recovery zone - clear the notified flag so a future <10% drop can re-alert.
+    ///   This prevents the "stuck at 12%" scenario where the user never gets another alert
+    ///   even after the quota eventually drops further.
+    /// - **≥ 20%**: Safe zone - clear the notified flag unconditionally
     func checkAndNotify(primary: ModelQuota?) {
         guard let primary else {
             notifiedPrimaryKey = nil
