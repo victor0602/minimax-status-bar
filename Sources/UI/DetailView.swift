@@ -2,21 +2,36 @@ import SwiftUI
 
 // MARK: - DetailView
 
+/// Shared formatters / motion constants — avoids per-tick allocation; springs use `response`+`dampingFraction` (SwiftUI’s preferred form for predictable settling on 60/120 Hz displays).
+private enum PopoverChrome {
+    static let clockFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = .current
+        return f
+    }()
+
+    static let exitSpring = Animation.spring(response: 0.28, dampingFraction: 0.92)
+    static let exitTerminateDelay: TimeInterval = 0.32
+    static let aboutSpring = Animation.spring(response: 0.22, dampingFraction: 0.88)
+    static let rowExpandSpring = Animation.spring(response: 0.2, dampingFraction: 0.9)
+}
+
 @MainActor
 struct DetailView: View {
     let quotaState: QuotaState
     let onRefresh: () -> Void
 
-    @State private var now: Date = Date()
+    @State private var timelineAnchor = Date()
     @State private var isExiting = false
     @State private var showAbout = false
     @StateObject private var updateState = UpdateState.shared
 
     private func triggerExitAnimation() {
-        withAnimation(.spring(duration: 0.35, bounce: 0.0)) {
+        withAnimation(PopoverChrome.exitSpring) {
             isExiting = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + PopoverChrome.exitTerminateDelay) {
             NSApp.terminate(nil)
         }
     }
@@ -40,46 +55,45 @@ struct DetailView: View {
             .sorted { $0.0.priority < $1.0.priority }
     }
 
-    private func relativeTime(_ date: Date) -> String {
+    private func relativeTime(_ date: Date, now: Date) -> String {
         let diff = Int(now.timeIntervalSince(date))
         if diff < 10 { return "刚刚" }
         if diff < 60 { return "\(diff)s 前" }
         if diff < 3600 { return "\(diff / 60)m 前" }
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
+        return PopoverChrome.clockFormatter.string(from: date)
     }
 
     var body: some View {
-        containerView
-            .frame(width: 320)
-            .scaleEffect(isExiting ? 0.85 : 1.0)
-            .opacity(isExiting ? 0.0 : 1.0)
-            .blur(radius: isExiting ? 8 : 0)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-            )
-            .overlay(downloadingOverlay)
-            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
-                now = date
-            }
+        TimelineView(.periodic(from: timelineAnchor, by: 1.0)) { context in
+            containerView(now: context.date)
+                .frame(width: 320)
+                .scaleEffect(isExiting ? 0.85 : 1.0)
+                .opacity(isExiting ? 0.0 : 1.0)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+                )
+                .overlay(downloadingOverlay)
+        }
     }
 
     @ViewBuilder
-    private var containerView: some View {
+    private func containerView(now: Date) -> some View {
         VStack(spacing: 0) {
             headerBar
-            lastUpdatedText
-            offlineCacheBanner
+            lastUpdatedText(now: now)
+            offlineCacheBanner(now: now)
             Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-            if showAbout {
-                aboutPanel
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+            Group {
+                if showAbout {
+                    aboutPanel
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
+                }
             }
+            .animation(PopoverChrome.aboutSpring, value: showAbout)
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     if let reason = quotaState.setupReason {
@@ -106,7 +120,7 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("MiniMax")
                         .font(.system(size: 13, weight: .semibold))
-                    Button(action: { withAnimation(.spring(duration: 0.25)) { showAbout.toggle() } }) {
+                    Button(action: { withAnimation(PopoverChrome.aboutSpring) { showAbout.toggle() } }) {
                         HStack(spacing: 3) {
                             Text(quotaState.setupReason != nil ? "用量感知 · 待连接" : "Token Plan 用量")
                                 .font(.system(size: 10))
@@ -148,9 +162,9 @@ struct DetailView: View {
     // MARK: - Last Updated
 
     @ViewBuilder
-    private var lastUpdatedText: some View {
+    private func lastUpdatedText(now: Date) -> some View {
         if let updated = quotaState.lastUpdatedAt {
-            Text("最后更新：\(relativeTime(updated))")
+            Text("最后更新：\(relativeTime(updated, now: now))")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,7 +177,7 @@ struct DetailView: View {
 
     /// Shows cached data age when API fails but cache exists
     @ViewBuilder
-    private var offlineCacheBanner: some View {
+    private func offlineCacheBanner(now: Date) -> some View {
         // Show banner when: has error, no live data, but has cached data
         if quotaState.lastError != nil, !quotaState.hasData, quotaState.hasCachedData, let cachedAt = quotaState.cachedAt {
             let ageMinutes = Int(now.timeIntervalSince(cachedAt) / 60)
@@ -607,7 +621,7 @@ struct ModelRowView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(PopoverChrome.rowExpandSpring) {
                     isExpanded.toggle()
                 }
             }
