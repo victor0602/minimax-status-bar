@@ -70,5 +70,5 @@ jobs:
 
             ## Requirements
 
-            - macOS 13.0+ (Liquid Glass UI on macOS 26+)
-            - MiniMax API key: `export MINIMAX_API_KEY="your_key"`
+            - macOS 13.0+
+            - MiniMax **Token Plan** key (see repo README for OpenClaw / env setup)

@@ -5,6 +5,19 @@ options:
     macOS: "13.0"
   xcodeVersion: "15.0"
 
+schemes:
+  minimax-status-bar:
+    build:
+      targets:
+        minimax-status-bar: all
+        minimax-status-barTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - minimax-status-barTests
+
 settings:
   base:
     SWIFT_VERSION: "5.9"
@@ -28,16 +41,35 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
         CODE_SIGN_STYLE: Automatic
         CODE_SIGNING_ALLOWED: "NO"
+        ENABLE_TESTABILITY: YES
     info:
       path: Sources/App/Info.plist
       properties:
         CFBundleName: "MiniMax Status Bar"
         CFBundleDisplayName: "MiniMax Status Bar"
         CFBundleIdentifier: com.openclaw.minimax-status-bar
-        CFBundleVersion: "2"
-        CFBundleShortVersionString: "1.1.0"
+        CFBundleVersion: "3"
+        CFBundleShortVersionString: "1.1.1"
         CFBundlePackageType: APPL
         CFBundleExecutable: "MiniMax Status Bar"
         LSMinimumSystemVersion: "13.0"
         LSUIElement: true
         NSHighResolutionCapable: true
+
+  minimax-status-barTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: minimax-status-bar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openclaw.minimax-status-barTests
+        PRODUCT_NAME: minimax-status-barTests
+        GENERATE_INFOPLIST_FILE: YES
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGNING_ALLOWED: "NO"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MiniMax Status Bar.app/Contents/MacOS/MiniMax Status Bar"
+        BUNDLE_LOADER: "$(TEST_HOST)"

@@ -12,37 +12,23 @@ class StatusBarController {
     private var eventMonitor: Any?
     private var retryCount: Int = 0
     private var retryTask: Task<Void, Never>?
+    /// Refreshes menu bar tooltip/title so reset countdown stays believable between API polls.
+    private var menubarHintTimer: Timer?
 
     init() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let apiKey = resolveAPIKey()
+        let apiKey = APIKeyResolver.resolve()
 
         if apiKey.isEmpty {
-            quotaState.lastError = """
-            未找到 MiniMax API Key
-
-            自动查找路径：
-            1. 环境变量 MINIMAX_API_KEY
-            2. ~/.openclaw/.env
-            3. ~/.openclaw/openclaw.json
-
-            OpenClaw 用户重启 app 即可自动读取
-            其他用户请在终端执行：
-            export MINIMAX_API_KEY=your_key
-            """
+            quotaState.setupReason = .missingAPIKey
+            quotaState.lastError = nil
             quotaState.isLoading = false
         } else if !apiKey.hasPrefix("sk-") && !apiKey.hasPrefix("sk-cp-") {
-            // Token Plan Key format check
-            quotaState.lastError = """
-            API Key 格式异常
-
-            请确认使用的是 Token Plan Key
-            Token Plan Key 通常以 sk-cp- 开头
-
-            前往获取：platform.minimaxi.com/user-center/payment/token-plan
-            """
+            quotaState.setupReason = .invalidTokenPlanKeyFormat
+            quotaState.lastError = nil
             quotaState.isLoading = false
         } else {
+            quotaState.setupReason = nil
             apiService = MiniMaxAPIService(apiKey: apiKey)
         }
 
@@ -51,56 +37,10 @@ class StatusBarController {
         if apiService != nil {
             startPolling()
         }
+        updateStatusBarColor()
 
         startUpdateTimer()
         NotificationService.shared.requestPermission()
-    }
-
-    // MARK: - API Key Resolution
-
-    private func resolveAPIKey() -> String {
-        // 1. Environment variable
-        if let key = ProcessInfo.processInfo.environment["MINIMAX_API_KEY"], !key.isEmpty {
-            return key
-        }
-
-        // 2. ~/.openclaw/.env file
-        let envPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".openclaw/.env")
-        if let content = try? String(contentsOf: envPath, encoding: .utf8) {
-            for line in content.components(separatedBy: .newlines) {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("MINIMAX_API_KEY=") {
-                    var value = String(trimmed.dropFirst("MINIMAX_API_KEY=".count))
-                    value = value.trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
-                    if !value.isEmpty {
-                        return value
-                    }
-                }
-            }
-        }
-
-        // 3. ~/.openclaw/openclaw.json
-        let jsonPath = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".openclaw/openclaw.json")
-        guard let data = try? Data(contentsOf: jsonPath),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return ""
-        }
-
-        if let models = json["models"] as? [String: Any],
-           let providers = models["providers"] as? [String: Any],
-           let minimax = providers["minimax"] as? [String: Any],
-           let apiKey = minimax["apiKey"] as? String, !apiKey.isEmpty {
-            return apiKey
-        }
-
-        if let env = json["env"] as? [String: Any],
-           let apiKey = env["MINIMAX_API_KEY"] as? String, !apiKey.isEmpty {
-            return apiKey
-        }
-
-        return ""
     }
 
     private func setupStatusBarButton() {
@@ -114,6 +54,7 @@ class StatusBarController {
             }
             button.action = #selector(togglePopover)
             button.target = self
+            button.toolTip = "MiniMax Token Plan 用量"
         }
     }
 
@@ -175,9 +116,11 @@ class StatusBarController {
 
     private func setupTimer(interval: TimeInterval) {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        let newTimer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             self?.refresh()
         }
+        RunLoop.main.add(newTimer, forMode: .common)
+        timer = newTimer
     }
 
     private func startUpdateTimer() {
@@ -186,11 +129,14 @@ class StatusBarController {
             await UpdateState.shared.checkForUpdate()
         }
 
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
+        updateTimer?.invalidate()
+        let newUpdateTimer = Timer(timeInterval: 6 * 3600, repeats: true) { _ in
             Task {
                 await UpdateState.shared.checkForUpdate()
             }
         }
+        RunLoop.main.add(newUpdateTimer, forMode: .common)
+        updateTimer = newUpdateTimer
     }
 
     private func manualRefresh() {
@@ -200,12 +146,34 @@ class StatusBarController {
         refresh()
     }
 
+    /// Re-read env / OpenClaw files and create `MiniMaxAPIService` when the user fixes configuration without relaunching.
+    private func attemptBindAPIServiceIfNeeded() {
+        guard apiService == nil else { return }
+        let key = APIKeyResolver.resolve()
+        if key.isEmpty {
+            quotaState.setupReason = .missingAPIKey
+            return
+        }
+        if !key.hasPrefix("sk-") && !key.hasPrefix("sk-cp-") {
+            quotaState.setupReason = .invalidTokenPlanKeyFormat
+            return
+        }
+        quotaState.setupReason = nil
+        apiService = MiniMaxAPIService(apiKey: key)
+    }
+
     private func refresh() {
+        attemptBindAPIServiceIfNeeded()
         quotaState.isLoading = true
 
         guard let api = apiService else {
             quotaState.isLoading = false
+            updateStatusBarColor()
             return
+        }
+
+        if timer == nil {
+            setupTimer(interval: 60)
         }
 
         Task { [api] in
@@ -221,10 +189,12 @@ class StatusBarController {
                     quotaState.models = models
                     quotaState.lastUpdatedAt = Date()
                     quotaState.lastError = nil
+                    quotaState.setupReason = nil
                     self.retryCount = 0
                     self.adjustPollingInterval()
                     self.updateStatusBarColor()
-                    NotificationService.shared.checkAndNotify(models: models)
+                    NotificationService.shared.checkAndNotify(primary: self.quotaState.primaryModel)
+                    self.startMenubarHintTimerIfNeeded()
                 }
             } catch {
                 await MainActor.run {
@@ -247,8 +217,24 @@ class StatusBarController {
         } else {
             retryCount = 0
             quotaState.lastError = sanitizedError(error)
+            stopMenubarHintTimer()
             updateStatusBarColor()
         }
+    }
+
+    private func startMenubarHintTimerIfNeeded() {
+        stopMenubarHintTimer()
+        menubarHintTimer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            self?.updateStatusBarColor()
+        }
+        if let menubarHintTimer {
+            RunLoop.main.add(menubarHintTimer, forMode: .common)
+        }
+    }
+
+    private func stopMenubarHintTimer() {
+        menubarHintTimer?.invalidate()
+        menubarHintTimer = nil
     }
 
     private func adjustPollingInterval() {
@@ -299,18 +285,32 @@ class StatusBarController {
     private func updateStatusBarColor() {
         guard let button = statusItem.button else { return }
 
+        if quotaState.setupReason != nil {
+            stopMenubarHintTimer()
+            button.title = " ○"
+            button.toolTip = "尚未连接 Token Plan，点击查看引导"
+            return
+        }
+
         if quotaState.lastError != nil {
-            button.title = " 🔴"
+            stopMenubarHintTimer()
+            button.title = " ⚠︎"
+            button.toolTip = "用量获取失败，点击查看详情"
             return
         }
 
         guard let primary = quotaState.primaryModel else {
+            stopMenubarHintTimer()
             button.title = ""
+            button.toolTip = "MiniMax Token Plan 用量"
             return
         }
 
         let pct = primary.remainingPercent
         let dot = pct > 30 ? "🟢" : (pct > 10 ? "🟡" : "🔴")
-        button.title = " \(dot) \(pct)%"
+        let tag = primary.statusBarAbbreviation
+        button.title = tag.isEmpty ? " \(dot) \(pct)%" : " \(dot) \(tag)\(pct)%"
+        let resetHint = primary.remainsTimeFormatted
+        button.toolTip = "\(primary.displayName) · 剩余 \(pct)% · 重置 \(resetHint) · 下拉查看全部模态"
     }
 }

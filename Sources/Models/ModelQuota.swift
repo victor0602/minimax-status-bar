@@ -97,37 +97,48 @@ struct ModelQuotaRaw: Codable {
 
 // MARK: - Processed Model
 
+/// Token Plan「剩余次数」接口里，`current_interval_usage_count` / `current_weekly_usage_count` 表示 **剩余**（与控制台一致），不是已用。
+/// 本 struct 同时保存「剩余」与由总额推算的「已用」，避免命名误导。
 struct ModelQuota {
     let modelName: String
+    /// 当前日/周期配额上限（次）
     let totalCount: Int
-    let usageCount: Int
+    /// 已消耗次数
+    let intervalConsumedCount: Int
+    /// 剩余次数（与控制台「剩余」一致）
     let remainingCount: Int
-    let usedPercent: Int
-    let weeklyTotal: Int
-    let weeklyUsage: Int
-    let weeklyRemaining: Int
+    /// 已用占总额比例 0...100（与 `remainingPercent` 互补，用于核对控制台「已用%」）
+    let intervalConsumedPercent: Int
+    /// 周维度上限
+    let weeklyTotalCount: Int
+    /// 本周已用（推算：周上限 − 周剩余）
+    let weeklyConsumedCount: Int
+    /// 本周剩余（与 API `current_weekly_usage_count` 同语义）
+    let weeklyRemainingCount: Int
     let remainsTimeMs: Int64
     let weeklyStartTime: Date
     let weeklyEndTime: Date
     let fetchedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
-        // API 字段 usage_count 实际表示剩余次数（而非已用）
-        let remaining = raw.currentIntervalUsageCount
-        let used = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
-        let usedPct = raw.currentIntervalTotalCount > 0
-            ? used * 100 / raw.currentIntervalTotalCount
+        let remainingInterval = raw.currentIntervalUsageCount
+        let consumedInterval = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
+        let consumedPct = raw.currentIntervalTotalCount > 0
+            ? consumedInterval * 100 / raw.currentIntervalTotalCount
             : 0
+
+        let weeklyRemaining = raw.currentWeeklyUsageCount
+        let weeklyConsumed = raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount
 
         return ModelQuota(
             modelName: raw.modelName,
             totalCount: raw.currentIntervalTotalCount,
-            usageCount: used,
-            remainingCount: remaining,
-            usedPercent: usedPct,
-            weeklyTotal: raw.currentWeeklyTotalCount,
-            weeklyUsage: raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount,
-            weeklyRemaining: raw.currentWeeklyUsageCount,
+            intervalConsumedCount: consumedInterval,
+            remainingCount: remainingInterval,
+            intervalConsumedPercent: consumedPct,
+            weeklyTotalCount: raw.currentWeeklyTotalCount,
+            weeklyConsumedCount: weeklyConsumed,
+            weeklyRemainingCount: weeklyRemaining,
             remainsTimeMs: raw.remainsTime,
             weeklyStartTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyStartTime) / 1000),
             weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000),
@@ -146,9 +157,9 @@ struct ModelQuota {
         if ms <= 0 {
             return "即将重置"
         }
-        let hours = ms / 3600000
-        let minutes = (ms % 3600000) / 60000
-        let seconds = (ms % 60000) / 1000
+        let hours = ms / 3_600_000
+        let minutes = (ms % 3_600_000) / 60_000
+        let seconds = (ms % 60_000) / 1000
         if hours > 0 {
             return "\(hours)h \(minutes)m"
         } else if minutes > 0 {
@@ -188,5 +199,17 @@ struct ModelQuota {
     var remainingPercent: Int {
         guard totalCount > 0 else { return 0 }
         return remainingCount * 100 / totalCount
+    }
+
+    /// Ultra-short tag for `NSStatusItem` title (heavy M2.7 users get an instant read).
+    var statusBarAbbreviation: String {
+        let n = modelName.lowercased()
+        if n.contains("m2.7") { return "2.7·" }
+        if n.contains("minimax-m") { return "M·" }
+        if n.contains("hailuo") { return "V·" }
+        if n.contains("speech") { return "S·" }
+        if n.contains("music") { return "Mu·" }
+        if n.contains("image") { return "I·" }
+        return ""
     }
 }

@@ -3,7 +3,8 @@ import UserNotifications
 
 class NotificationService {
     static let shared = NotificationService()
-    private var notifiedModels: Set<String> = []
+    /// Only the **primary** model (same pick order as menu bar) triggers low-quota alerts — avoids modal spam for M2.7-first workflows.
+    private var notifiedPrimaryKey: String?
 
     private init() {}
 
@@ -13,18 +14,26 @@ class NotificationService {
         ) { _, _ in }
     }
 
-    func checkAndNotify(models: [ModelQuota]) {
-        for model in models {
-            let key = model.modelName
-            if model.remainingPercent < 10 && !notifiedModels.contains(key) {
-                notifiedModels.insert(key)
+    func checkAndNotify(primary: ModelQuota?) {
+        guard let primary else {
+            notifiedPrimaryKey = nil
+            return
+        }
+        let key = primary.modelName
+        if primary.remainingPercent < 10 {
+            if notifiedPrimaryKey != key {
+                notifiedPrimaryKey = key
                 sendNotification(
-                    title: "MiniMax 配额不足",
-                    body: "\(model.displayName) 剩余 \(model.remainingPercent)%，请注意使用量"
+                    title: "主力模型配额偏低",
+                    body: "\(primary.displayName) 剩余 \(primary.remainingPercent)%，约 \(primary.remainsTimeFormatted) 后重置"
                 )
             }
-            if model.remainingPercent >= 20 {
-                notifiedModels.remove(key)
+        } else if primary.remainingPercent >= 20 {
+            notifiedPrimaryKey = nil
+        } else {
+            // 10%…19%：允许之后再次跌破 10% 时重复提醒（与原先「≥20% 才 reset」一致）
+            if notifiedPrimaryKey == key {
+                notifiedPrimaryKey = nil
             }
         }
     }

@@ -64,6 +64,9 @@ struct DetailView: View {
             Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(alignment: .leading, spacing: 8) {
+                    if let reason = quotaState.setupReason {
+                        SetupGuidanceView(reason: reason, onRetry: onRefresh)
+                    }
                     emptyStateView
                     skeletonView
                     categoryCardList
@@ -85,7 +88,7 @@ struct DetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("MiniMax")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("API 用量监控")
+                    Text(quotaState.setupReason != nil ? "用量感知 · 待连接" : "Token Plan 用量")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -133,18 +136,18 @@ struct DetailView: View {
 
     @ViewBuilder
     private var emptyStateView: some View {
-        if !quotaState.hasData && !quotaState.isLoading {
+        if quotaState.setupReason == nil, !quotaState.hasData, !quotaState.isLoading {
             VStack(spacing: 12) {
                 Image(systemName: quotaState.lastError != nil
                       ? "exclamationmark.triangle"
                       : "chart.bar.xaxis")
                     .font(.system(size: 32))
-                    .foregroundColor(quotaState.lastError != nil ? .red : .secondary)
+                    .foregroundColor(quotaState.lastError != nil ? .orange : .secondary)
 
-                Text(quotaState.lastError != nil ? "加载失败" : "暂无数据")
+                Text(quotaState.lastError != nil ? "暂时无法获取用量" : "暂无数据")
                     .font(.system(size: 13, weight: .medium))
 
-                Text(quotaState.lastError ?? "点击刷新按钮获取用量数据")
+                Text(quotaState.lastError ?? "点击刷新拉取最新配额；与控制台数字应以「剩余」一致。")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -167,7 +170,7 @@ struct DetailView: View {
 
     @ViewBuilder
     private var skeletonView: some View {
-        if quotaState.isLoading && !quotaState.hasData {
+        if quotaState.setupReason == nil, quotaState.isLoading, !quotaState.hasData {
             ForEach(0..<4, id: \.self) { _ in
                 SkeletonRowView()
             }
@@ -417,9 +420,14 @@ struct ModelRowView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                 Spacer()
-                Text("\(model.remainingPercent)%")
-                    .font(.caption)
-                    .foregroundColor(progressColor(for: model.remainingPercent))
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("剩余 \(model.remainingPercent)%")
+                        .font(.caption)
+                        .foregroundColor(progressColor(for: model.remainingPercent))
+                    Text("已用 \(model.intervalConsumedPercent)%")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -454,11 +462,13 @@ struct ModelRowView: View {
             }
 
             if isExpanded {
-                HStack {
-                    Text("本周: \(formatNumber(model.weeklyRemaining)) / \(formatNumber(model.weeklyTotal))")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("本周剩余 \(formatNumber(model.weeklyRemainingCount)) / 限额 \(formatNumber(model.weeklyTotalCount))")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Spacer()
+                    Text("本周已用 \(formatNumber(model.weeklyConsumedCount))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
                 .padding(.top, 2)
                 .transition(.opacity)

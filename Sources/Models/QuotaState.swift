@@ -6,6 +6,8 @@ class QuotaState: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var lastError: String?
     @Published var lastUpdatedAt: Date?
+    /// When set, show onboarding instead of treating the situation as a generic load error.
+    @Published var setupReason: SetupReason?
 
     var hasData: Bool { !models.isEmpty }
 
