@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var statusBarController: StatusBarController?
     private var settingsWindowController: NSWindowController?
     private var localKeyDownMonitor: Any?
+    /// 设置窗口打开时默认显示的标签页索引
+    private var settingsDefaultTab: Int? = nil
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
@@ -25,7 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     @MainActor
-    func openSettingsWindow() {
+    func openSettingsWindow(tab: Int? = nil) {
+        settingsDefaultTab = tab
         if settingsWindowController == nil {
             let root = SettingsView()
                 .environmentObject(AccountManager.shared)

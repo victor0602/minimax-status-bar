@@ -17,21 +17,34 @@ struct SettingsView: View {
     @State private var newAccountName = ""
     @State private var newAccountKey = ""
 
+    /// 外部传入的默认选中的标签页索引（0=通用, 1=账户, 2=用量历史）
+    var defaultTabIndex: Int? = nil
+
+    @State private var selectedTab: Int = 0
+
     private var displayMode: MenuBarDisplayMode {
         MenuBarDisplayMode(rawValue: displayModeRaw) ?? .concise
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             generalTab
                 .tabItem { Label("通用", systemImage: "gearshape") }
+                .tag(0)
             accountsTab
                 .tabItem { Label("账户", systemImage: "person.2") }
+                .tag(1)
             historyTab
                 .tabItem { Label("用量历史", systemImage: "chart.bar") }
+                .tag(2)
         }
         .frame(minWidth: 520, minHeight: 400)
-        .onAppear { reloadHistory() }
+        .onAppear {
+            if let tab = defaultTabIndex {
+                selectedTab = tab
+            }
+            reloadHistory()
+        }
     }
 
     private var generalTab: some View {
