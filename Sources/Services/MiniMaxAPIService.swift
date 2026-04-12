@@ -62,6 +62,13 @@ final class MiniMaxAPIService: APIServiceProtocol {
             throw MiniMaxAPIError.decodingError
         }
 
+        #if DEBUG
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("MiniMax Status Bar [DEBUG] API raw response:")
+            print(jsonString)
+        }
+        #endif
+
         if let baseResp = decoded.baseResp, baseResp.statusCode != 0 {
             APIMetrics.recordFailure(message: baseResp.statusMsg)
             throw MiniMaxAPIError.apiError(baseResp.statusMsg)

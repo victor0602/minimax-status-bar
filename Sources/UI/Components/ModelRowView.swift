@@ -28,9 +28,9 @@ struct ModelRowView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 0) {
-                    Text("剩余 \(model.remainingPercent)%")
+                    Text("剩余 \(model.remainingPercentForDisplay)%")
                         .font(.caption)
-                        .foregroundColor(progressColor(for: model.remainingPercent))
+                        .foregroundColor(progressColor(for: model.remainingPercentForDisplay))
                     Text("已用 \(model.intervalConsumedPercent)%")
                         .font(.caption2)
                         .foregroundColor(.secondary)
