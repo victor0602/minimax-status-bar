@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -12,6 +13,8 @@ class StatusBarController {
     private var retryTask: Task<Void, Never>?
     /// Observer token for NSWorkspace.didWakeNotification, must be removed in deinit
     private var workspaceDidWakeObserver: NSObjectProtocol?
+
+    private var cancellables = Set<AnyCancellable>()
 
     /// Centralized Timer registry: key = timer name, value = active Timer
     /// Names: "polling" (quota refresh), "updateCheck" (GitHub release check), "menubarHint" (title/tooltip refresh)
@@ -45,6 +48,7 @@ class StatusBarController {
 
         startUpdateTimer()
         NotificationService.shared.requestPermission()
+        observeUpdateAvailability()
 
         // Register for system sleep/wake notifications to refresh immediately on wake
         workspaceDidWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -146,6 +150,33 @@ class StatusBarController {
     private func cancelTimer(name: String) {
         timers[name]?.invalidate()
         timers.removeValue(forKey: name)
+    }
+
+    private func observeUpdateAvailability() {
+        UpdateState.shared.$latestRelease
+            .receive(on: DispatchQueue.main)
+            .removeDuplicates { $0?.version == $1?.version }
+            .sink { [weak self] release in
+                self?.updateStatusBarColor()
+                if let release {
+                    NotificationService.shared.offerUpdateAvailable(release)
+                    self?.maybeStartAutomaticUpdateInstallIfNeeded(release: release)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// When the user enables automatic updates, start the same in-app DMG flow used by the popover button (after a short debounce).
+    private func maybeStartAutomaticUpdateInstallIfNeeded(release: ReleaseInfo) {
+        guard UserDefaults.standard.bool(forKey: AppStorageKeys.prefersAutomaticUpdateInstall) else { return }
+        guard !UpdateState.shared.isDownloading else { return }
+        let version = release.version
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            guard UserDefaults.standard.bool(forKey: AppStorageKeys.prefersAutomaticUpdateInstall) else { return }
+            guard !UpdateState.shared.isDownloading else { return }
+            guard UpdateState.shared.latestRelease?.version == version else { return }
+            UpdateState.shared.downloadAndInstall(release)
+        }
     }
 
     private func startUpdateTimer() {
@@ -318,6 +349,17 @@ class StatusBarController {
         )
     }
 
+    private func applyPendingUpdateMenubarIndicator(to button: NSStatusBarButton) {
+        guard let release = UpdateState.shared.latestRelease else { return }
+        let hint = " · 可更新 v\(release.version)"
+        if button.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            button.title = "⬆"
+        } else {
+            button.title = (button.title) + " ⬆"
+        }
+        button.toolTip = (button.toolTip ?? "") + hint
+    }
+
     private func updateStatusBarColor() {
         guard let button = statusItem.button else { return }
 
@@ -325,6 +367,7 @@ class StatusBarController {
             cancelTimer(name: "menubarHint")
             button.title = " ○"
             button.toolTip = "尚未连接 Token Plan，点击查看引导"
+            applyPendingUpdateMenubarIndicator(to: button)
             return
         }
 
@@ -342,6 +385,7 @@ class StatusBarController {
                 button.title = ""
                 button.toolTip = "MiniMax Token Plan 用量"
             }
+            applyPendingUpdateMenubarIndicator(to: button)
             return
         }
 
@@ -362,5 +406,6 @@ class StatusBarController {
         let resetHint = primary.remainsTimeFormatted
         let dataStatus = quotaState.hasData ? "" : "（缓存，可能过期）"
         button.toolTip = "\(primary.displayName) · 剩余 \(displayPct)% · 重置 \(resetHint) \(dataStatus) · 下拉查看全部模态"
+        applyPendingUpdateMenubarIndicator(to: button)
     }
 }

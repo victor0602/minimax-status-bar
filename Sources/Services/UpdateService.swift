@@ -7,7 +7,7 @@ actor UpdateService {
     init(githubRepo: String = AppConfig.githubRepo) {
         self.githubRepo = githubRepo
         let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        self.currentVersion = bundleVersion.replacingOccurrences(of: "v", with: "")
+        self.currentVersion = bundleVersion.replacingOccurrences(of: "v", with: "", options: .caseInsensitive)
     }
 
     func checkForUpdate() async -> ReleaseInfo? {
@@ -24,8 +24,8 @@ actor UpdateService {
             return nil
         }
 
-        let latestVersion = tagName.replacingOccurrences(of: "v", with: "")
-        guard latestVersion != currentVersion else {
+        let latestVersion = tagName.replacingOccurrences(of: "v", with: "", options: .caseInsensitive)
+        guard Self.isLatestVersion(latestVersion, strictlyNewerThan: currentVersion) else {
             return nil
         }
 
@@ -45,5 +45,26 @@ actor UpdateService {
         let body = json["body"] as? String ?? ""
 
         return ReleaseInfo(version: latestVersion, downloadURL: dmgURL, releaseNotes: body)
+    }
+
+    /// Compares dotted version strings so `2.0` and `2.0.0` are treated as the same release (no false update prompt).
+    private static func isLatestVersion(_ latest: String, strictlyNewerThan current: String) -> Bool {
+        let latestParts = normalizedIntParts(latest)
+        let currentParts = normalizedIntParts(current)
+        let count = max(latestParts.count, currentParts.count)
+        let lp = latestParts + Array(repeating: 0, count: count - latestParts.count)
+        let cp = currentParts + Array(repeating: 0, count: count - currentParts.count)
+        for i in 0..<count {
+            if lp[i] > cp[i] { return true }
+            if lp[i] < cp[i] { return false }
+        }
+        return false
+    }
+
+    private static func normalizedIntParts(_ version: String) -> [Int] {
+        version
+            .replacingOccurrences(of: "v", with: "", options: .caseInsensitive)
+            .split(separator: ".")
+            .compactMap { Int($0) }
     }
 }

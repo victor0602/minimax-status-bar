@@ -52,4 +52,14 @@ final class UpdateServiceTests: XCTestCase {
         XCTAssertTrue(needsUpdate(current: "1", latest: "1.1.0"))
         XCTAssertFalse(needsUpdate(current: "1.1", latest: "1.1"))
     }
+
+    /// Matches `UpdateService` release check: app `2.0` must not prompt when GitHub tag is `v2.0.0`.
+    func testTwoZeroEqualsTwoZeroZero() {
+        XCTAssertFalse(needsUpdate(current: "2.0", latest: "2.0.0"))
+        XCTAssertFalse(needsUpdate(current: "2.0.0", latest: "2.0"))
+    }
+
+    func testTwoZeroPatchOneIsNewer() {
+        XCTAssertTrue(needsUpdate(current: "2.0", latest: "2.0.1"))
+    }
 }

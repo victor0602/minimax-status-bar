@@ -26,6 +26,7 @@ struct DetailView: View {
     @State private var isExiting = false
     @State private var showAbout = false
     @StateObject private var updateState = UpdateState.shared
+    @AppStorage(AppStorageKeys.prefersAutomaticUpdateInstall) private var prefersAutomaticUpdateInstall = false
 
     private func triggerExitAnimation() {
         withAnimation(PopoverChrome.exitSpring) {
@@ -74,6 +75,11 @@ struct DetailView: View {
                         .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
                 )
                 .overlay(downloadingOverlay)
+        }
+        .onChange(of: prefersAutomaticUpdateInstall) { newValue in
+            if newValue, let r = updateState.latestRelease, !updateState.isDownloading {
+                updateState.downloadAndInstall(r)
+            }
         }
     }
 
@@ -473,6 +479,20 @@ struct DetailView: View {
             Text("为重度使用 MiniMax Token Plan 的开发者而生。菜单栏一眼感知配额，零配置，零打扰。")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            Toggle(isOn: $prefersAutomaticUpdateInstall) {
+                Text("发现新版本时自动下载并安装")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            .toggleStyle(.checkbox)
+
+            Text("与菜单栏「更新」相同流程；安装在「应用程序」时，替换文件可能需要输入密码。关闭后仍会通过系统通知提醒你。")
+                .font(.system(size: 9))
+                .foregroundColor(Color(nsColor: .quaternaryLabelColor))
                 .fixedSize(horizontal: false, vertical: true)
 
             Divider()
