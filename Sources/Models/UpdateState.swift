@@ -99,4 +99,19 @@ final class UpdateState: ObservableObject {
         downloadProgress = 0.0
         installPhase = ""
     }
+
+    /// Resolves `ReleaseInfo` (refreshing from GitHub if needed) and starts the in-app DMG install flow. Used from notification actions and shortcuts.
+    @MainActor
+    func beginInstallFromNotification(expectedVersion: String?) {
+        Task { @MainActor in
+            if let r = latestRelease, expectedVersion == nil || r.version == expectedVersion {
+                downloadAndInstall(r)
+                return
+            }
+            await checkForUpdate()
+            guard let r = latestRelease else { return }
+            if let expected = expectedVersion, r.version != expected { return }
+            downloadAndInstall(r)
+        }
+    }
 }
