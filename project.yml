@@ -48,8 +48,8 @@ targets:
         CFBundleName: "MiniMax Status Bar"
         CFBundleDisplayName: "MiniMax Status Bar"
         CFBundleIdentifier: com.openclaw.minimax-status-bar
-        CFBundleVersion: "5"
-        CFBundleShortVersionString: "2.0"
+        CFBundleVersion: "6"
+        CFBundleShortVersionString: "2.0.0"
         CFBundlePackageType: APPL
         CFBundleExecutable: "MiniMax Status Bar"
         LSMinimumSystemVersion: "13.0"
