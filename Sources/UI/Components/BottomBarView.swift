@@ -14,6 +14,7 @@ struct BottomBarView: View {
                     updateButton(release)
                 }
                 launchAtLoginButton
+                historyButton
                 consoleButton
             }
             versionBar
@@ -80,6 +81,26 @@ struct BottomBarView: View {
                     .font(.system(size: 11))
                 Image(systemName: "arrow.up.right.square")
                     .font(.system(size: 9))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+        }
+        .buttonStyle(.plain)
+        .ifPlatformButton()
+    }
+
+    /// 打开设置窗口并跳转到用量历史标签页
+    private var historyButton: some View {
+        Button(action: {
+            Task { @MainActor in
+                (NSApp.delegate as? AppDelegate)?.openSettingsWindow(tab: 2)
+            }
+        }) {
+            HStack(spacing: 3) {
+                Image(systemName: "chart.bar")
+                    .font(.system(size: 10))
+                Text("用量历史")
+                    .font(.system(size: 11))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
