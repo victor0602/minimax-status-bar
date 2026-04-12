@@ -47,6 +47,12 @@ struct SetupGuidanceView: View {
                 stepRow(number: 3, text: "菜单栏圆点表示主力模型剩余比例，点开可查看各模态")
             }
 
+            HStack(spacing: 10) {
+                shortcutBadge("⌘R", "刷新")
+                shortcutBadge("⌘,", "设置")
+                shortcutBadge("⌘Q", "退出")
+            }
+
             VStack(spacing: 8) {
                 Button(action: onRetry) {
                     Text("重新检测密钥")
@@ -90,6 +96,19 @@ struct SetupGuidanceView: View {
                 .font(.system(size: 11))
                 .foregroundColor(.primary.opacity(0.9))
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func shortcutBadge(_ keys: String, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Text(keys)
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
         }
     }
 

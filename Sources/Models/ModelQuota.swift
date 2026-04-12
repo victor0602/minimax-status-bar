@@ -73,12 +73,15 @@ struct BaseResp: Codable {
     }
 }
 
+/// 原始 JSON。注意：接口字段名含 `usage_count`，但语义是 **剩余次数**（与控制台「剩余」一致），不是「已用」。
 struct ModelQuotaRaw: Codable {
     let modelName: String
     let currentIntervalTotalCount: Int
-    let currentIntervalUsageCount: Int
+    /// 周期内 **剩余** 次数（JSON：`current_interval_usage_count`，勿按字面当成已用）
+    let currentIntervalRemainingCount: Int
     let currentWeeklyTotalCount: Int
-    let currentWeeklyUsageCount: Int
+    /// 本周 **剩余** 次数（JSON：`current_weekly_usage_count`）
+    let currentWeeklyRemainingCount: Int
     let remainsTime: Int64
     let weeklyStartTime: Int64
     let weeklyEndTime: Int64
@@ -86,9 +89,9 @@ struct ModelQuotaRaw: Codable {
     enum CodingKeys: String, CodingKey {
         case modelName = "model_name"
         case currentIntervalTotalCount = "current_interval_total_count"
-        case currentIntervalUsageCount = "current_interval_usage_count"
+        case currentIntervalRemainingCount = "current_interval_usage_count"
         case currentWeeklyTotalCount = "current_weekly_total_count"
-        case currentWeeklyUsageCount = "current_weekly_usage_count"
+        case currentWeeklyRemainingCount = "current_weekly_usage_count"
         case remainsTime = "remains_time"
         case weeklyStartTime = "weekly_start_time"
         case weeklyEndTime = "weekly_end_time"
@@ -97,8 +100,7 @@ struct ModelQuotaRaw: Codable {
 
 // MARK: - Processed Model
 
-/// Token Plan「剩余次数」接口里，`current_interval_usage_count` / `current_weekly_usage_count` 表示 **剩余**（与控制台一致），不是已用。
-/// 本 struct 同时保存「剩余」与由总额推算的「已用」，避免命名误导。
+/// 展示用模型：`ModelQuotaRaw` 已从 JSON 字段名解耦，周期/周维度的「已用」一律由 `total − 剩余` 推算。
 struct ModelQuota {
     let modelName: String
     /// 当前日/周期配额上限（次）
@@ -113,7 +115,7 @@ struct ModelQuota {
     let weeklyTotalCount: Int
     /// 本周已用（推算：周上限 − 周剩余）
     let weeklyConsumedCount: Int
-    /// 本周剩余（与 API `current_weekly_usage_count` 同语义）
+    /// 本周剩余（与原始 JSON `current_weekly_usage_count` 同数值）
     let weeklyRemainingCount: Int
     let remainsTimeMs: Int64
     let weeklyStartTime: Date
@@ -121,14 +123,14 @@ struct ModelQuota {
     let fetchedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
-        let remainingInterval = raw.currentIntervalUsageCount
-        let consumedInterval = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
+        let remainingInterval = raw.currentIntervalRemainingCount
+        let consumedInterval = raw.currentIntervalTotalCount - raw.currentIntervalRemainingCount
         let consumedPct = raw.currentIntervalTotalCount > 0
             ? consumedInterval * 100 / raw.currentIntervalTotalCount
             : 0
 
-        let weeklyRemaining = raw.currentWeeklyUsageCount
-        let weeklyConsumed = raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount
+        let weeklyRemaining = raw.currentWeeklyRemainingCount
+        let weeklyConsumed = raw.currentWeeklyTotalCount - raw.currentWeeklyRemainingCount
 
         return ModelQuota(
             modelName: raw.modelName,
@@ -144,6 +146,53 @@ struct ModelQuota {
             weeklyEndTime: Date(timeIntervalSince1970: TimeInterval(raw.weeklyEndTime) / 1000),
             fetchedAt: Date()
         )
+    }
+
+    /// Full initializer for persistence restore / tests.
+    init(
+        modelName: String,
+        totalCount: Int,
+        intervalConsumedCount: Int,
+        remainingCount: Int,
+        intervalConsumedPercent: Int,
+        weeklyTotalCount: Int,
+        weeklyConsumedCount: Int,
+        weeklyRemainingCount: Int,
+        remainsTimeMs: Int64,
+        weeklyStartTime: Date,
+        weeklyEndTime: Date,
+        fetchedAt: Date
+    ) {
+        self.modelName = modelName
+        self.totalCount = totalCount
+        self.intervalConsumedCount = intervalConsumedCount
+        self.remainingCount = remainingCount
+        self.intervalConsumedPercent = intervalConsumedPercent
+        self.weeklyTotalCount = weeklyTotalCount
+        self.weeklyConsumedCount = weeklyConsumedCount
+        self.weeklyRemainingCount = weeklyRemainingCount
+        self.remainsTimeMs = remainsTimeMs
+        self.weeklyStartTime = weeklyStartTime
+        self.weeklyEndTime = weeklyEndTime
+        self.fetchedAt = fetchedAt
+    }
+
+    /// Compact remaining count for menu bar detailed mode (matches row formatting).
+    var formattedRemainingCountShort: String {
+        Self.formatCountForDisplay(remainingCount)
+    }
+
+    static func formatCountForDisplay(_ num: Int) -> String {
+        if num >= 1_000_000_000 {
+            return String(format: "%.1fB", Double(num) / 1_000_000_000)
+        }
+        if num >= 1_000_000 {
+            return String(format: "%.1fM", Double(num) / 1_000_000)
+        }
+        if num >= 1_000 {
+            return String(format: "%.1fK", Double(num) / 1_000)
+        }
+        return "\(num)"
     }
 
     /// Remains time that decreases in real-time based on elapsed seconds since fetch

@@ -6,9 +6,9 @@ final class ModelQuotaTests: XCTestCase {
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalUsageCount: 25,
+            currentIntervalRemainingCount: 25,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyUsageCount: 400,
+            currentWeeklyRemainingCount: 400,
             remainsTime: 3_600_000,
             weeklyStartTime: 0,
             weeklyEndTime: 86_400_000
@@ -25,13 +25,32 @@ final class ModelQuotaTests: XCTestCase {
         XCTAssertEqual(q.displayName, "MiniMax M2.7")
     }
 
+    /// API：`usage_count` = 剩余；total=3 且剩余=3 → 100% 剩余、0% 已用（勿把 3 当成「已用 3 次」）
+    func testFromRawWhenTotalEqualsRemainingFieldMeansFullQuota() {
+        let raw = ModelQuotaRaw(
+            modelName: "MiniMax-M2.7",
+            currentIntervalTotalCount: 3,
+            currentIntervalRemainingCount: 3,
+            currentWeeklyTotalCount: 10,
+            currentWeeklyRemainingCount: 10,
+            remainsTime: 1_000,
+            weeklyStartTime: 0,
+            weeklyEndTime: 86_400_000
+        )
+        let q = ModelQuota.from(raw: raw)
+        XCTAssertEqual(q.remainingCount, 3)
+        XCTAssertEqual(q.intervalConsumedCount, 0)
+        XCTAssertEqual(q.remainingPercent, 100)
+        XCTAssertEqual(q.intervalConsumedPercent, 0)
+    }
+
     func testStatusBarAbbreviationForVideo() {
         let raw = ModelQuotaRaw(
             modelName: "hailuo-2.3-fast",
             currentIntervalTotalCount: 10,
-            currentIntervalUsageCount: 5,
+            currentIntervalRemainingCount: 5,
             currentWeeklyTotalCount: 0,
-            currentWeeklyUsageCount: 0,
+            currentWeeklyRemainingCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -41,13 +60,15 @@ final class ModelQuotaTests: XCTestCase {
 
     @MainActor
     func testPrimaryModelPrefersM27Name() {
-        let state = QuotaState()
+        let mock = MockQuotaPersistence()
+        mock.loadReturn = nil
+        let state = QuotaState(persistence: mock)
         let a = ModelQuota.from(raw: ModelQuotaRaw(
             modelName: "other-model",
             currentIntervalTotalCount: 10,
-            currentIntervalUsageCount: 5,
+            currentIntervalRemainingCount: 5,
             currentWeeklyTotalCount: 0,
-            currentWeeklyUsageCount: 0,
+            currentWeeklyRemainingCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -55,9 +76,9 @@ final class ModelQuotaTests: XCTestCase {
         let b = ModelQuota.from(raw: ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 10,
-            currentIntervalUsageCount: 9,
+            currentIntervalRemainingCount: 9,
             currentWeeklyTotalCount: 0,
-            currentWeeklyUsageCount: 0,
+            currentWeeklyRemainingCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0

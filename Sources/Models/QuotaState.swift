@@ -6,29 +6,49 @@ class QuotaState: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var lastError: String?
     @Published var lastUpdatedAt: Date?
-    /// When set, show onboarding instead of treating the situation as a generic load error.
     @Published var setupReason: SetupReason?
 
-    /// Cached models from the last successful API fetch (for offline display)
     @Published var cachedModels: [ModelQuota] = []
-    /// Timestamp of the last successful API fetch
     @Published var cachedAt: Date?
 
+    private let persistence: QuotaStatePersistence
+
     var hasData: Bool { !models.isEmpty }
-    /// Whether cached data is available for offline display
     var hasCachedData: Bool { !cachedModels.isEmpty }
 
-    /// Primary model selection priority: M2.7 → minimax-m prefix → first available model
+    // primaryModel 选取优先级说明：
+    // 1. M2.7 模型优先（最常用的主力模型）
+    // 2. 其次是 minimax-m 前缀的模型
+    // 3. 若以上都没有，返回数组中任意第一个模型（兜底）
     var primaryModel: ModelQuota? {
         models.first { $0.modelName.lowercased().contains("m2.7") }
             ?? models.first { $0.modelName.lowercased().contains("minimax-m") }
             ?? models.first
     }
 
-    /// Primary model based on cached data (used when API fails but cache exists)
     var cachedPrimaryModel: ModelQuota? {
         cachedModels.first { $0.modelName.lowercased().contains("m2.7") }
             ?? cachedModels.first { $0.modelName.lowercased().contains("minimax-m") }
             ?? cachedModels.first
+    }
+
+    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence.shared) {
+        self.persistence = persistence
+        if let (loaded, at) = persistence.loadCachedQuota() {
+            cachedModels = loaded
+            cachedAt = at
+        }
+    }
+
+    /// Successful API response: updates live + disk cache.
+    func commitSuccessfulFetch(models: [ModelQuota]) {
+        self.models = models
+        lastUpdatedAt = Date()
+        lastError = nil
+        setupReason = nil
+        cachedModels = models
+        let now = Date()
+        cachedAt = now
+        persistence.saveCachedQuota(models: models, cachedAt: now)
     }
 }

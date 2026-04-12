@@ -2,13 +2,44 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var statusBarController: StatusBarController?
+    private var settingsWindowController: NSWindowController?
+    private var localKeyDownMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
         NotificationService.shared.registerUpdateNotificationCategory()
         statusBarController = StatusBarController()
+
+        localKeyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.modifierFlags.contains(.command),
+                  event.charactersIgnoringModifiers == "," else {
+                return event
+            }
+            Task { @MainActor in
+                self?.openSettingsWindow()
+            }
+            return nil
+        }
+    }
+
+    @MainActor
+    func openSettingsWindow() {
+        if settingsWindowController == nil {
+            let root = SettingsView()
+                .environmentObject(AccountManager.shared)
+            let hosting = NSHostingController(rootView: root)
+            let window = NSWindow(contentViewController: hosting)
+            window.title = "MiniMax Status Bar 设置"
+            window.setContentSize(NSSize(width: 560, height: 440))
+            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.isReleasedWhenClosed = false
+            settingsWindowController = NSWindowController(window: window)
+        }
+        settingsWindowController?.showWindow(nil)
+        settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func userNotificationCenter(
@@ -42,10 +73,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // cleanup
+        if let monitor = localKeyDownMonitor {
+            NSEvent.removeMonitor(monitor)
+            localKeyDownMonitor = nil
+        }
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
-        return true
+        true
     }
 }
