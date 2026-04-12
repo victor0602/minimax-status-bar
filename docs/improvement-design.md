@@ -15,7 +15,7 @@
 - **代码质量**: 提升可维护性、可测试性
 - **用户体验**: 更丰富的交互、更细致的视觉反馈
 - **稳定性**: 更完善的错误处理、更全面的测试覆盖
-- **功能**: 支持多账户、查看用量历史
+- **功能**: 用量历史记录与分析
 
 ---
 
@@ -219,11 +219,14 @@ class CacheConsistencyChecker {
 
 ## 5. 功能扩展
 
-### 5.1 多账户支持
+### 5.1 ~~多账户支持~~ ❌ 已废弃
 
-#### 5.1.1 数据模型
+> **重要说明**：MiniMax Token Plan 官方限制每个用户只能拥有一个 Token Plan Key，不存在多账户切换需求。Token Plan Key 与用户账户绑定，无法在多个账户间共享或切换。因此多账户功能已被废弃。
+
+~~#### 5.1.1 数据模型~~
 
 ```swift
+// ❌ 已废弃
 struct AccountConfig: Codable {
     let id: UUID
     var name: String          // 显示名称
@@ -241,24 +244,13 @@ class AccountManager: ObservableObject {
 }
 ```
 
-#### 5.1.2 UI 展示
+~~#### 5.1.2 UI 展示~~
 
-菜单栏下拉菜单顶部添加账户切换器：
+~~菜单栏下拉菜单顶部添加账户切换器~~
 
-```
-┌─────────────────────────────┐
-│ 🔄 账户: [下拉选择]          │
-├─────────────────────────────┤
-│ [账号1 ✓] [账号2] [账号3]   │
-│ + 添加新账户                 │
-├─────────────────────────────┤
-│ 用量详情...                  │
-└─────────────────────────────┘
-```
+~~#### 5.1.3 限制~~
 
-#### 5.1.3 限制
-
-- 最多 3 个账户
+~~- 最多 3 个账户~~
 - API Key 存储使用 Keychain（安全）
 
 ### 5.2 用量历史
@@ -338,7 +330,7 @@ class ExportService {
 - [x] API 响应时间监控（`APIMetrics` + 设置页诊断区；成功/失败均记录）
 
 ### Phase 4: 功能扩展
-- [x] `AccountManager` 多账户（UserDefaults 存密钥，设置中可开关）
+- [x] ~~`AccountManager` 多账户~~ ❌ 已废弃（见 §5.1 说明）
 - [x] SQLite.swift + `UsageHistorySQLiteStore`（`~/Library/Application Support/MiniMaxStatusBar/usage_history.sqlite3`）
 - [x] 用量历史 Tab（Swift Charts 近 14 日 + 列表）
 - [x] CSV 导出（`NSSavePanel`）
