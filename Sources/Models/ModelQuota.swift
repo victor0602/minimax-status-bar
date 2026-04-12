@@ -252,6 +252,12 @@ struct ModelQuota {
         return remainingCount * 100 / totalCount
     }
 
+    /// 确保与 consumedPercent 互补为 100%，解决取整导致的"加起来不是 100%"问题
+    /// 例如: consumed=1, remaining=99 (都四舍五入)，但逻辑上应该 0+100 或 1+99
+    var remainingPercentForDisplay: Int {
+        return 100 - intervalConsumedPercent
+    }
+
     /// Ultra-short tag for `NSStatusItem` title (heavy M2.7 users get an instant read).
     var statusBarAbbreviation: String {
         let n = modelName.lowercased()
