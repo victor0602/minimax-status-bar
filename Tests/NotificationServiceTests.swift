@@ -18,13 +18,12 @@ final class NotificationServiceTests: XCTestCase {
     private func makeModel(name: String = "MiniMax-M2.7", remainingPercent: Int, remainingMs: Int64 = 3600000) -> ModelQuota {
         let total = 100
         let remaining = total * remainingPercent / 100
-        let consumed = total - remaining
         return ModelQuota.from(raw: ModelQuotaRaw(
             modelName: name,
             currentIntervalTotalCount: total,
-            currentIntervalUsageCount: remaining,
+            currentIntervalRemainingCount: remaining,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyUsageCount: 400,
+            currentWeeklyRemainingCount: 400,
             remainsTime: remainingMs,
             weeklyStartTime: 0,
             weeklyEndTime: 86400000

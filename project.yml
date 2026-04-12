@@ -1,4 +1,8 @@
 name: minimax-status-bar
+packages:
+  SQLiteSwift:
+    url: https://github.com/stephencelis/SQLite.swift
+    from: 0.15.3
 options:
   bundleIdPrefix: com.openclaw
   deploymentTarget:
@@ -31,6 +35,9 @@ targets:
     platform: macOS
     sources:
       - Sources
+    dependencies:
+      - package: SQLiteSwift
+        product: SQLite
     resources:
       - Resources
     settings:
@@ -48,8 +55,8 @@ targets:
         CFBundleName: "MiniMax Status Bar"
         CFBundleDisplayName: "MiniMax Status Bar"
         CFBundleIdentifier: com.openclaw.minimax-status-bar
-        CFBundleVersion: "6"
-        CFBundleShortVersionString: "2.0.0"
+        CFBundleVersion: "7"
+        CFBundleShortVersionString: "2.0.1"
         CFBundlePackageType: APPL
         CFBundleExecutable: "MiniMax Status Bar"
         LSMinimumSystemVersion: "13.0"

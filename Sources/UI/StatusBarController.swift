@@ -3,27 +3,30 @@ import Combine
 import SwiftUI
 
 @MainActor
-class StatusBarController {
+final class StatusBarController {
     private var statusItem: NSStatusItem
-    private let quotaState = QuotaState()
-    private var apiService: MiniMaxAPIService!
+    private let quotaState: QuotaState
+    private var apiService: (any APIServiceProtocol)?
+    private var networkMonitor: NetworkMonitor?
     private var popover: NSPopover?
     private var eventMonitor: Any?
     private var retryCount: Int = 0
     private var retryTask: Task<Void, Never>?
-    /// Observer token for NSWorkspace.didWakeNotification, must be removed in deinit
     private var workspaceDidWakeObserver: NSObjectProtocol?
+    private var preferencesObserver: NSObjectProtocol?
 
     private var cancellables = Set<AnyCancellable>()
-
-    /// Centralized Timer registry: key = timer name, value = active Timer
-    /// Names: "polling" (quota refresh), "updateCheck" (GitHub release check), "menubarHint" (title/tooltip refresh)
     private var timers: [String: Timer] = [:]
 
-    init() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let apiKey = APIKeyResolver.resolve()
+    // MARK: - Timer Documentation
+    // polling: 每 30/60/120/300 秒触发一次（用户可配置），负责自动刷新配额数据
+    // updateCheck: 每 6 小时触发一次，检查 GitHub 是否有新版本发布
+    // menubarHint: 固定 30 秒触发一次，用于菜单栏标题的实时倒计时更新（如剩余时间）
 
+    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence.shared) {
+        quotaState = QuotaState(persistence: persistence)
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let apiKey = Self.resolvedAPIKey()
         let validation = APIKeyResolver.validateForQuotaAPI(apiKey)
         switch validation {
         case .valid:
@@ -50,15 +53,45 @@ class StatusBarController {
         NotificationService.shared.requestPermission()
         observeUpdateAvailability()
 
-        // Register for system sleep/wake notifications to refresh immediately on wake
         workspaceDidWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            // Immediately refresh once when system wakes from sleep; does not affect polling timers
+            Task { @MainActor in
+                self?.manualRefresh()
+            }
+        }
+
+        networkMonitor = NetworkMonitor()
+        networkMonitor?.start { [weak self] in
             self?.manualRefresh()
         }
+
+        preferencesObserver = NotificationCenter.default.addObserver(
+            forName: .minimaxPreferencesDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rebuildAPIService()
+            self?.restartPollingFromUserDefaults()
+            self?.updateStatusBarColor()
+        }
+    }
+
+    private static func resolvedAPIKey() -> String {
+        AccountManager.shared.apiKeyForActiveAccount() ?? APIKeyResolver.resolve()
+    }
+
+    private func menuBarDisplayMode() -> MenuBarDisplayMode {
+        let raw = UserDefaults.standard.string(forKey: AppStorageKeys.menuBarDisplayMode)
+        return MenuBarDisplayMode(rawValue: raw ?? MenuBarDisplayMode.concise.rawValue) ?? .concise
+    }
+
+    private func basePollingInterval() -> TimeInterval {
+        let v = UserDefaults.standard.object(forKey: AppStorageKeys.refreshIntervalSeconds) as? Int ?? 60
+        let allowed = [30, 60, 120, 300]
+        return TimeInterval(allowed.contains(v) ? v : 60)
     }
 
     private func setupStatusBarButton() {
@@ -83,15 +116,19 @@ class StatusBarController {
         popover?.animates = true
         popover?.setValue(true, forKeyPath: "shouldHideAnchor")
 
-        let contentView = MenuContentView(quotaState: quotaState, onRefresh: { [weak self] in
-            self?.manualRefresh()
-        })
+        let contentView = MenuContentView(
+            quotaState: quotaState,
+            onRefresh: { [weak self] in self?.manualRefresh() },
+            onOpenSettings: {
+                Task { @MainActor in
+                    (NSApp.delegate as? AppDelegate)?.openSettingsWindow()
+                }
+            }
+        )
         let hostingController = NSHostingController(rootView: contentView)
-
         hostingController.view.layer?.backgroundColor = CGColor(gray: 0, alpha: 0)
         hostingController.view.wantsLayer = true
         hostingController.view.layer?.contentsScale = 2.0
-
         popover?.contentViewController = hostingController
     }
 
@@ -101,10 +138,8 @@ class StatusBarController {
         }
     }
 
-    @MainActor
     private func doTogglePopover() {
         guard let popover = popover, let button = statusItem.button else { return }
-
         if popover.isShown {
             closePopover()
         } else {
@@ -127,16 +162,13 @@ class StatusBarController {
         }
     }
 
-    private func startPolling(interval: TimeInterval = 60) {
-        registerTimer(name: "polling", interval: interval) { [weak self] in
+    private func startPolling() {
+        registerTimer(name: "polling", interval: basePollingInterval()) { [weak self] in
             self?.refresh()
         }
         refresh()
     }
 
-    // MARK: - Timer Management
-
-    /// Registers a repeating timer. If a timer with the same name exists, it is cancelled and replaced.
     private func registerTimer(name: String, interval: TimeInterval, callback: @escaping () -> Void) {
         cancelTimer(name: name)
         let timer = Timer(timeInterval: interval, repeats: true) { _ in
@@ -146,7 +178,6 @@ class StatusBarController {
         timers[name] = timer
     }
 
-    /// Cancels and removes a named timer.
     private func cancelTimer(name: String) {
         timers[name]?.invalidate()
         timers.removeValue(forKey: name)
@@ -166,7 +197,6 @@ class StatusBarController {
             .store(in: &cancellables)
     }
 
-    /// When the user enables automatic updates, start the same in-app DMG flow used by the popover button (after a short debounce).
     private func maybeStartAutomaticUpdateInstallIfNeeded(release: ReleaseInfo) {
         guard UserDefaults.standard.bool(forKey: AppStorageKeys.prefersAutomaticUpdateInstall) else { return }
         guard !UpdateState.shared.isDownloading else { return }
@@ -184,7 +214,6 @@ class StatusBarController {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             await UpdateState.shared.checkForUpdate()
         }
-        // Check for updates every 6 hours
         registerTimer(name: "updateCheck", interval: 6 * 3600) {
             Task {
                 await UpdateState.shared.checkForUpdate()
@@ -193,15 +222,16 @@ class StatusBarController {
     }
 
     deinit {
-        // Cancel all registered timers to prevent memory leaks or repeated firing
-        for (_, timer) in timers {
-            timer.invalidate()
-        }
+        for (_, timer) in timers { timer.invalidate() }
         timers.removeAll()
-        // Remove sleep/wake notification observer to avoid dangling pointer
         if let observer = workspaceDidWakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
+        if let observer = preferencesObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        networkMonitor?.stop()
+        networkMonitor = nil
     }
 
     private func manualRefresh() {
@@ -211,10 +241,40 @@ class StatusBarController {
         refresh()
     }
 
-    /// Re-read env / OpenClaw files and create `MiniMaxAPIService` when the user fixes configuration without relaunching.
+    private func rebuildAPIService() {
+        let key = Self.resolvedAPIKey()
+        let validation = APIKeyResolver.validateForQuotaAPI(key)
+        switch validation {
+        case .valid:
+            quotaState.setupReason = nil
+            apiService = MiniMaxAPIService(apiKey: key)
+            if timers["polling"] == nil {
+                startPolling()
+            } else {
+                manualRefresh()
+            }
+        case .missing:
+            apiService = nil
+            cancelTimer(name: "polling")
+            quotaState.setupReason = .missingAPIKey
+            quotaState.isLoading = false
+        case .nonTokenPlanKey, .invalidFormat:
+            apiService = nil
+            cancelTimer(name: "polling")
+            quotaState.setupReason = .invalidTokenPlanKeyFormat
+            quotaState.isLoading = false
+        }
+        updateStatusBarColor()
+    }
+
+    private func restartPollingFromUserDefaults() {
+        guard apiService != nil else { return }
+        adjustPollingInterval()
+    }
+
     private func attemptBindAPIServiceIfNeeded() {
         guard apiService == nil else { return }
-        let key = APIKeyResolver.resolve()
+        let key = Self.resolvedAPIKey()
         let validation = APIKeyResolver.validateForQuotaAPI(key)
         switch validation {
         case .valid:
@@ -230,6 +290,7 @@ class StatusBarController {
     private func refresh() {
         attemptBindAPIServiceIfNeeded()
         quotaState.isLoading = true
+        updateStatusBarColor()
 
         guard let api = apiService else {
             quotaState.isLoading = false
@@ -238,7 +299,7 @@ class StatusBarController {
         }
 
         if timers["polling"] == nil {
-            registerTimer(name: "polling", interval: 60) { [weak self] in
+            registerTimer(name: "polling", interval: basePollingInterval()) { [weak self] in
                 self?.refresh()
             }
         }
@@ -247,19 +308,22 @@ class StatusBarController {
             defer {
                 Task { @MainActor in
                     quotaState.isLoading = false
+                    self.updateStatusBarColor()
                 }
             }
 
             do {
                 let models = try await api.fetchQuota()
+                #if DEBUG
+                let issues = CacheConsistencyChecker.validationIssues(for: models)
+                if !issues.isEmpty {
+                    print("MiniMax Status Bar [DEBUG] quota validation: \(issues.joined(separator: "; "))")
+                }
+                #endif
                 await MainActor.run {
-                    quotaState.models = models
-                    quotaState.lastUpdatedAt = Date()
-                    quotaState.lastError = nil
-                    quotaState.setupReason = nil
-                    // Write to cache for offline access
-                    quotaState.cachedModels = models
-                    quotaState.cachedAt = Date()
+                    quotaState.commitSuccessfulFetch(models: models)
+                    let primaryName = quotaState.primaryModel?.modelName ?? ""
+                    UsageHistoryRecorder.recordSnapshot(models: models, primaryModelName: primaryName)
                     self.retryCount = 0
                     self.adjustPollingInterval()
                     self.updateStatusBarColor()
@@ -278,7 +342,6 @@ class StatusBarController {
         if retryCount < 3 {
             retryCount += 1
             retryTask?.cancel()
-            // Exponential backoff: 2s → 4s → 8s
             let delayNanoseconds = UInt64(pow(2.0, Double(retryCount))) * 1_000_000_000
             retryTask = Task {
                 try? await Task.sleep(nanoseconds: delayNanoseconds)
@@ -296,15 +359,19 @@ class StatusBarController {
 
     private func startMenubarHintTimerIfNeeded() {
         cancelTimer(name: "menubarHint")
-        // Refresh menu bar title/tooltip every 30s so reset countdown stays accurate between API polls
         registerTimer(name: "menubarHint", interval: 30) { [weak self] in
             self?.updateStatusBarColor()
         }
     }
 
     private func adjustPollingInterval() {
-        guard let primary = quotaState.primaryModel else { return }
-        let interval: TimeInterval = primary.remainingPercent < 10 ? 10 : 60
+        guard apiService != nil else { return }
+        let base = basePollingInterval()
+        guard let primary = quotaState.primaryModel else {
+            registerTimer(name: "polling", interval: base) { [weak self] in self?.refresh() }
+            return
+        }
+        let interval = primary.remainingPercent < 10 ? min(10, base) : base
         registerTimer(name: "polling", interval: interval) { [weak self] in
             self?.refresh()
         }
@@ -371,11 +438,9 @@ class StatusBarController {
             return
         }
 
-        // Determine primary model: use live data if available, otherwise fall back to cache
         let primaryModel = quotaState.primaryModel ?? quotaState.cachedPrimaryModel
 
         if primaryModel == nil {
-            // No data at all (neither live nor cached)
             if quotaState.lastError != nil {
                 cancelTimer(name: "menubarHint")
                 button.title = " ⚠︎"
@@ -389,19 +454,20 @@ class StatusBarController {
             return
         }
 
-        // We have data (live or cached)
         let primary = primaryModel!
         let pct = primary.remainingPercent
-        // Align with website rounding: if remaining ≥ 99%, display as 100% to match website "0% used"
         let displayPct = pct >= 99 ? 100 : pct
         let dot = displayPct > 30 ? "🟢" : (displayPct > 10 ? "🟡" : "🔴")
         let tag = primary.statusBarAbbreviation
-
-        // If showing cached data (no live data available), append ~ to indicate stale data
         let staleIndicator = quotaState.hasData ? "" : "~"
-        button.title = tag.isEmpty
-            ? " \(dot) \(staleIndicator)\(displayPct)%"
-            : " \(dot) \(tag)\(staleIndicator)\(displayPct)%"
+        let verboseSuffix = menuBarDisplayMode() == .verbose ? " \(primary.formattedRemainingCountShort)" : ""
+        let loadPrefix = quotaState.isLoading ? "↻ " : ""
+
+        if tag.isEmpty {
+            button.title = " \(loadPrefix)\(dot) \(staleIndicator)\(displayPct)%\(verboseSuffix)"
+        } else {
+            button.title = " \(loadPrefix)\(dot) \(tag)\(staleIndicator)\(displayPct)%\(verboseSuffix)"
+        }
 
         let resetHint = primary.remainsTimeFormatted
         let dataStatus = quotaState.hasData ? "" : "（缓存，可能过期）"
