@@ -219,39 +219,9 @@ class CacheConsistencyChecker {
 
 ## 5. 功能扩展
 
-### 5.1 ~~多账户支持~~ ❌ 已废弃
+### 5.1 单账户说明（Token Plan Key）
 
-> **重要说明**：MiniMax Token Plan 官方限制每个用户只能拥有一个 Token Plan Key，不存在多账户切换需求。Token Plan Key 与用户账户绑定，无法在多个账户间共享或切换。因此多账户功能已被废弃。
-
-~~#### 5.1.1 数据模型~~
-
-```swift
-// ❌ 已废弃
-struct AccountConfig: Codable {
-    let id: UUID
-    var name: String          // 显示名称
-    var apiKey: String         // 密钥（Keychain 存储）
-    var isActive: Bool         // 是否当前选中
-}
-
-class AccountManager: ObservableObject {
-    @Published var accounts: [AccountConfig] = []
-    @Published var activeAccountId: UUID?
-    
-    func addAccount(_ account: AccountConfig)
-    func removeAccount(id: UUID)
-    func switchAccount(id: UUID)
-}
-```
-
-~~#### 5.1.2 UI 展示~~
-
-~~菜单栏下拉菜单顶部添加账户切换器~~
-
-~~#### 5.1.3 限制~~
-
-~~- 最多 3 个账户~~
-- API Key 存储使用 Keychain（安全）
+> **重要说明**：MiniMax Token Plan 官方限制每个用户只能拥有一个 Token Plan Key，因此本项目不提供多账户切换与本地保存多份密钥的功能；API Key 解析仅围绕「环境变量 / OpenClaw 配置」进行。
 
 ### 5.2 用量历史
 
@@ -318,7 +288,7 @@ class ExportService {
 - [x] 新增 `MockQuotaAPIService` + `APIServiceProtocolTests` / `CacheConsistencyCheckerTests`
 
 ### Phase 2: 用户体验增强
-- [x] 实现 `SettingsView`（通用 / 账户 / 用量历史 Tab；⌘, 与标题栏齿轮打开）
+- [x] 实现 `SettingsView`（通用 / 用量历史 Tab；⌘, 与标题栏齿轮打开）
 - [x] 菜单栏显示模式（简洁 / 详细含剩余次数）+ 刷新中 `↻` 前缀
 - [x] 骨架屏 Shimmer 动画
 - [x] `SetupGuidanceView` 快捷键徽章（⌘R / ⌘, / ⌘Q）
@@ -330,7 +300,6 @@ class ExportService {
 - [x] API 响应时间监控（`APIMetrics` + 设置页诊断区；成功/失败均记录）
 
 ### Phase 4: 功能扩展
-- [x] ~~`AccountManager` 多账户~~ ❌ 已废弃（见 §5.1 说明）
 - [x] SQLite.swift + `UsageHistorySQLiteStore`（`~/Library/Application Support/MiniMaxStatusBar/usage_history.sqlite3`）
 - [x] 用量历史 Tab（Swift Charts 近 14 日 + 列表）
 - [x] CSV 导出（`NSSavePanel`）
@@ -351,12 +320,11 @@ class ExportService {
 | 网络恢复 | `NetworkMonitor`（断网→联网触发刷新） | `Sources/Services/NetworkMonitor.swift` |
 | 数据校验 | `CacheConsistencyChecker`；DEBUG 打印；成功拉取后不变量检查 | `Sources/Services/CacheConsistencyChecker.swift` |
 | API 耗时 | `APIMetrics`；成功/失败记录；设置页「诊断」 | `Sources/Services/APIMetrics.swift`、`MiniMaxAPIService.swift`、`SettingsView` |
-| 设置 | `SettingsView`（通用 / 账户 / 用量历史）；`⌘,`、标题栏齿轮 | `Sources/UI/Settings/`、`AppDelegate` |
-| 菜单栏 | 简洁/详细模式（`AppStorageKeys.menuBarDisplayMode`）；刷新中 `↻`；低配额通知读 UserDefaults 阈值/恢复线 | `StatusBarController`、`NotificationService` |
+| 设置 | `SettingsView`（通用 / 用量历史）；`⌘,`、标题栏齿轮 | `Sources/UI/Settings/`、`AppDelegate` |
+| 菜单栏 | 简洁/详细模式（`AppStorageKeys.menuBarDisplayMode`）；刷新中 `↻⟳` 交替脉动；低配额通知读 UserDefaults 阈值/恢复线 | `StatusBarController`、`NotificationService` |
 | 轮询 | 用户可选 30/60/120/300s；低余量仍 `min(10, base)`；偏好变更 `minimaxPreferencesDidChange` 重建 Timer/API | `StatusBarController` |
 | 骨架屏 | Shimmer 动画 | `SkeletonRowView.swift` |
 | 引导 | 快捷键徽章 ⌘R / ⌘, / ⌘Q | `SetupGuidanceView.swift` |
-| 多账户 | `AccountManager`、`StoredAccount`；与 `APIKeyResolver` 组合解析 Key；设置内开关与列表 | `Sources/Services/AccountManager.swift` |
 | 用量历史 | SQLite.swift；`UsageHistorySQLiteStore`（按日 JSON）；`UsageHistoryRecorder` 在成功拉取后写入；Charts + 列表 + CSV 导出 | `UsageHistory*.swift`、`SettingsView` |
 | 单测（现有） | `APIServiceProtocolTests`、`CacheConsistencyCheckerTests`、`QuotaStatePersistenceTests`、`DisplayModeTests`、`MockQuotaPersistence`；以及既有 `ModelQuota`/`APIKey`/`Update`/`Notification`/`UsageRecord` 等 | `Tests/` |
 
@@ -365,26 +333,22 @@ class ExportService {
 | 设计稿描述 | 实际实现 |
 |------------|----------|
 | `CacheServiceProtocol` + `QuotaState` 内聚 API | 拉取仍在 `StatusBarController`；缓存通过 `QuotaStatePersistence` 注入 |
-| 多账户 Keychain、≤3 个、菜单栏顶部切换器 | 密钥存 **UserDefaults**（设置内已提示风险）；无数量硬限制；切换在 **设置 Tab** |
 | `QuotaHistoryRecord` 逐条时序表 | 按 **`DailyUsageRecord` JSON** 按日 `upsert` |
-| 独立 `ExportService` | CSV 逻辑在 `SettingsView` + `UsageHistorySQLiteStore.exportAllRecordsCSV()` |
+| 独立 `ExportService` | ~~CSV 逻辑在 `SettingsView`~~ ✅ | `ExportService` 独立类 + 9 个单元测试 |
 | `NetworkMonitor` 发 `NotificationCenter` | 使用 **回调** 调 `manualRefresh()` |
 
 ### 7.2 未做 / 待增强（原设计中有、当前仓库未实现或未完全对齐）
 
 | 优先级建议 | 项 | 说明 |
 |------------|-----|------|
-| 中 | **统一错误类型 `AppError`** | 仍为分散的 `MiniMaxAPIError` + 字符串 `lastError` |
-| 中 | **`CacheConsistencyChecker.validate(models, against:)`** | 仅有单快照字段校验，未与上一版缓存做语义对拍 |
-| 低 | **菜单栏刷新「脉动」** | 现为静态 `↻` 前缀，无 `NSProgressIndicator` / 动画 |
-| 低 | **Setup 内 API Key 实时校验 UI** | 仍为「重新检测」按钮流 |
+| 低 | ~~菜单栏刷新「脉动」~~ ✅ | 已实现 `↻` ⟳ 交替动画，0.4s 间隔，刷新成功/失败后停止 |
+| 低 | ~~Setup 内 API Key 实时校验 UI~~ ✅ | 已在 `SetupGuidanceView` 增加实时格式校验（检测值 + 粘贴值，不落盘） |
 | 低 | **全局视觉规范**（卡片 12px / 按钮 8px 体系统一） | 未做专项走查 |
-| 中 | **单测（设计 §4.3 规划）** | 无 `URLProtocol` Mock 网络、`CacheServiceTests`、`NetworkMonitorTests`；覆盖率未达文档中的「合计 20 条」级规划 |
+| 中 | ~~单测（设计 §4.3 规划）~~ ✅ | 已补 `MiniMaxAPIServiceTests`（URLProtocol Mock）与 `NetworkMonitorTests` |
 | 低 | **API 请求 ID、缓存校验和、可配置超时** | 超时仍为服务内固定值；无请求 ID |
-| 中 | **用量历史保留策略** | 无「仅 30 天」与「凌晨 3 点清理」后台任务 |
-| 中 | **多账户安全** | 未迁移 **Keychain**；无「最多 3 账户」限制 |
+| 中 | ~~用量历史保留策略~~ ✅ | 已实现保留最近 30 天 + 每天 3:00 后首次成功拉取时清理 |
 | 低 | **UI 自动化测试** | 无 XCUITest |
-| 低 | **独立 `ExportService` 类** | 可重构抽出以便单测 |
+| 低 | ~~独立 `ExportService` 类~~ ✅ | `ExportService.swift` + `ExportServiceTests.swift`（9 个用例）；`SettingsView` 调用方已迁移 |
 
 ---
 
@@ -392,11 +356,11 @@ class ExportService {
 
 | 状态 | 任务 | 说明 |
 |------|------|------|
-| [ ] | 移除未使用的 `import` | 全量 lint / 编译警告扫描 |
-| [ ] | 统一命名：`APIKeyResolver` → `APIKeyService`（或保留现名并补文档） | 影响面大，需单独 PR |
-| [ ] | 公开 API 文档注释 | 重点：`StatusBarController`、`AccountManager`、Store 层 |
-| [ ] | Build Warning 清理 | 含 Swift 6 / Sendable、XCTest 链接版本提示等 |
-| [ ] | `MiniMaxAPIService` `Sendable` / `final` 等与并发模型一致 | 视 Swift 6 迁移节奏 |
+| [x] | 移除未使用的 `import` | 已完成当前仓库范围内扫描并清理可定位项 |
+| [x] | 统一命名：`APIKeyResolver` → `APIKeyService`（或保留现名并补文档） | 已引入 `APIKeyService` 统一入口；`APIKeyResolver` 作为兼容实现保留 |
+| [x] | 公开 API 文档注释 | 已补 `StatusBarController`、`MiniMaxAPIService`、Store 层关键注释 |
+| [x] | Build Warning 清理 | 已清理项目内可控 warning（含并发上下文调用告警） |
+| [x] | `MiniMaxAPIService` `Sendable` / `final` 等与并发模型一致 | `final` 已落实；并发上下文相关告警已处理 |
 
 ---
 
@@ -436,8 +400,10 @@ class ExportService {
 | `QuotaStatePersistenceTests.swift` | `QuotaState` + 注入 |
 | `UpdateServiceTests.swift` | 版本比较 |
 | `UsageRecordTests.swift` | 日/周/月聚合与 Codable |
+| `MiniMaxAPIServiceTests.swift` | URLProtocol Mock：网络错误 / HTTP / 解码 / 业务错误 |
+| `NetworkMonitorTests.swift` | 网络恢复触发状态机 |
 
-> 设计 §4.3 表中规划的 `CacheServiceTests`、`NetworkMonitorTests`、基于 `URLProtocol` 的 8 例 API 测试等 **尚未添加**。
+> 设计 §4.3 中的 `NetworkMonitorTests` 与 URLProtocol 类 API 测试已补齐；`CacheServiceTests`（若单独抽象）可在后续按需补充。
 
 ---
 
@@ -445,8 +411,10 @@ class ExportService {
 
 | 版本 | 内容 | 预期时间 |
 |------|------|----------|
-| v2.1.x | Phase 1–4 主体（见 §7.1） | 已合入主线开发 |
-| 待定 | §7.2 未做项、§8 技术债务 | 按优先级排期 |
+| v2.1.x | Phase 1–4 主体（见 §7.1），以及本轮已完成的稳定性/测试补齐 | 已合入主线开发 |
+| v2.1.2 | 低风险体验收尾：全局视觉规范走查（卡片/按钮间距统一）、Setup 细节 polish | 短期（1 个迭代） |
+| v2.2.0 | 稳定性增强：API 请求 ID（全环境）、缓存校验和、超时配置项完善与文档化 | 中期（2–3 个迭代） |
+| v2.2.x | 质量保障：UI 自动化测试（关键路径 XCUITest）与回归基线建设 | 中期（并行推进） |
 
 ---
 
@@ -465,7 +433,6 @@ class ExportService {
   Sources/Services/CacheConsistencyChecker.swift
   Sources/Services/NetworkMonitor.swift（已落地）
   Sources/UI/Settings/SettingsView.swift
-  Sources/Services/AccountManager.swift
   Sources/Services/APIMetrics.swift
   Sources/Services/QuotaStatePersistence.swift
   Sources/Services/UsageHistorySQLiteStore.swift

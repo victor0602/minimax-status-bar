@@ -1,21 +1,17 @@
 import Foundation
 
 /// 离线缓存读写抽象（`QuotaState` 依赖注入，便于单测 Mock）。
-@MainActor
 protocol QuotaStatePersistence: AnyObject {
     func loadCachedQuota() -> (models: [ModelQuota], cachedAt: Date?)?
     func saveCachedQuota(models: [ModelQuota], cachedAt: Date)
 }
 
-@MainActor
 final class UserDefaultsQuotaPersistence: QuotaStatePersistence {
-    static let shared = UserDefaultsQuotaPersistence()
-
     private let defaults = UserDefaults.standard
     private let modelsKey = "com.openclaw.minimax.persistence.cachedModels.v1"
     private let cachedAtKey = "com.openclaw.minimax.persistence.cachedAt.v1"
 
-    private init() {}
+    init() {}
 
     func loadCachedQuota() -> (models: [ModelQuota], cachedAt: Date?)? {
         guard let data = defaults.data(forKey: modelsKey),

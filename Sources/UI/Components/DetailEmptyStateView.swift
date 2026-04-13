@@ -17,7 +17,7 @@ struct DetailEmptyStateView: View {
                     Text(quotaState.lastError != nil ? "暂时无法获取用量" : "暂无数据")
                         .font(.system(size: 13, weight: .medium))
 
-                    Text(quotaState.lastError ?? "点击刷新拉取最新配额；与控制台数字应以「剩余」一致。")
+                    Text(quotaState.lastError?.localizedDescription ?? "点击刷新拉取最新配额；与控制台数字应以「剩余」一致。")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
