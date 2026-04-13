@@ -31,7 +31,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         settingsDefaultTab = tab
         if settingsWindowController == nil {
             let root = SettingsView()
-                .environmentObject(AccountManager.shared)
             let hosting = NSHostingController(rootView: root)
             let window = NSWindow(contentViewController: hosting)
             window.title = "MiniMax Status Bar 设置"

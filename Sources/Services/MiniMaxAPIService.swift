@@ -1,5 +1,6 @@
 import Foundation
 
+/// MiniMax Token Plan 配额查询错误类型。
 enum MiniMaxAPIError: Error {
     case invalidURL
     case networkError(Error)
@@ -10,12 +11,15 @@ enum MiniMaxAPIError: Error {
     case apiError(String)
 }
 
+/// Token Plan 配额 API 实现（GET remains）。
 final class MiniMaxAPIService: APIServiceProtocol {
     private let apiKey: String
+    private let session: URLSession
     private let baseURL = "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains"
 
-    init(apiKey: String) {
+    init(apiKey: String, session: URLSession = .shared) {
         self.apiKey = apiKey
+        self.session = session
     }
 
     func fetchQuota() async throws -> [ModelQuota] {
@@ -29,14 +33,20 @@ final class MiniMaxAPIService: APIServiceProtocol {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 30
+        request.timeoutInterval = APIConfigService.shared.timeoutInterval
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // DEBUG 下添加请求 ID 便于排查问题
+        #if DEBUG
+        let requestID = APIConfigService.generateRequestID()
+        request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
+        #endif
 
         let t0 = Date()
         let (data, response): (Data, URLResponse)
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             APIMetrics.recordFailure(message: error.localizedDescription)
             throw MiniMaxAPIError.networkError(error)

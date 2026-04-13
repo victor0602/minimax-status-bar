@@ -1,9 +1,14 @@
 import Foundation
 import SQLite
 
-/// 用量历史：按日一条 JSON（`DailyUsageRecord`），SQLite 持久化（在主线程调用 `upsert` / `load`）。
+/// 用量历史 Store：按日一条 `DailyUsageRecord` JSON，使用 SQLite 持久化。
+///
+/// 约束：
+/// - API/UI 层以“按日 upsert、按日读取”为主，避免写入频率过高。
+/// - 保留策略默认最近 30 天（见 `purgeRecords`）。
 final class UsageHistorySQLiteStore {
     static let shared = UsageHistorySQLiteStore()
+    static let defaultRetentionDays: Int = 30
 
     private var db: Connection?
     private let table = Table("daily_usage")
@@ -59,5 +64,19 @@ final class UsageHistorySQLiteStore {
             lines.append("\(r.dateKey),\(r.primaryModelName.replacingOccurrences(of: ",", with: ";")),\(r.totalConsumed)")
         }
         return lines.joined(separator: "\n")
+    }
+
+    func purgeRecords(keepingDays: Int = UsageHistorySQLiteStore.defaultRetentionDays, now: Date = Date()) throws {
+        guard let db else { return }
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        guard let cutoff = calendar.date(byAdding: .day, value: -keepingDays, to: startOfToday) else { return }
+
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        let cutoffKey = fmt.string(from: cutoff)
+
+        let q = table.filter(dateKeyCol < cutoffKey)
+        _ = try db.run(q.delete())
     }
 }

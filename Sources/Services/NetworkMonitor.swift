@@ -11,21 +11,24 @@ final class NetworkMonitor {
     func start(onReachabilityRestored: @escaping () -> Void) {
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
-            let satisfied = path.status == .satisfied
-            if !self.sawInitialPath {
-                self.sawInitialPath = true
-                self.lastSatisfied = satisfied
-                return
-            }
-            if satisfied, !self.lastSatisfied {
-                DispatchQueue.main.async(execute: onReachabilityRestored)
-            }
-            self.lastSatisfied = satisfied
+            self.handleStatusChange(satisfied: path.status == .satisfied, onReachabilityRestored: onReachabilityRestored)
         }
         monitor.start(queue: queue)
     }
 
     func stop() {
         monitor.cancel()
+    }
+
+    func handleStatusChange(satisfied: Bool, onReachabilityRestored: @escaping () -> Void) {
+        if !sawInitialPath {
+            sawInitialPath = true
+            lastSatisfied = satisfied
+            return
+        }
+        if satisfied, !lastSatisfied {
+            DispatchQueue.main.async(execute: onReachabilityRestored)
+        }
+        lastSatisfied = satisfied
     }
 }

@@ -7,6 +7,9 @@ struct SetupGuidanceView: View {
     let reason: SetupReason
     let onRetry: () -> Void
 
+    @State private var detectedKey: String = ""
+    @State private var pastedKey: String = ""
+
     private var title: String {
         switch reason {
         case .missingAPIKey:
@@ -53,8 +56,27 @@ struct SetupGuidanceView: View {
                 shortcutBadge("⌘Q", "退出")
             }
 
+            VStack(alignment: .leading, spacing: 8) {
+                keyStatusSection(title: "当前检测到的 Key", key: detectedKey)
+                Divider().opacity(0.5)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("粘贴 Key 以实时校验格式（不保存）")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                    SecureField("Token Plan API Key（sk-cp-…）", text: $pastedKey)
+                        .textFieldStyle(.roundedBorder)
+                    keyValidationLine(for: pastedKey)
+                }
+            }
+            .padding(12)
+            .background(Color.primary.opacity(0.03))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
             VStack(spacing: 8) {
-                Button(action: onRetry) {
+                Button(action: {
+                    refreshDetectedKey()
+                    onRetry()
+                }) {
                     Text("重新检测密钥")
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: .infinity)
@@ -83,6 +105,9 @@ struct SetupGuidanceView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 10)
         .padding(.top, 4)
+        .onAppear {
+            refreshDetectedKey()
+        }
     }
 
     private func stepRow(number: Int, text: String) -> some View {
@@ -122,5 +147,59 @@ struct SetupGuidanceView: View {
         .buttonStyle(.plain)
         .background(Color.primary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func refreshDetectedKey() {
+        detectedKey = APIKeyService.resolve()
+    }
+
+    private func maskedKeySummary(_ key: String) -> String {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "（未检测到）" }
+        let prefix = String(trimmed.prefix(10))
+        let suffix = String(trimmed.suffix(4))
+        return "\(prefix)…\(suffix)（\(trimmed.count) chars）"
+    }
+
+    private func keyStatusSection(title: String, key: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            Text(maskedKeySummary(key))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.primary.opacity(0.9))
+            keyValidationLine(for: key)
+        }
+    }
+
+    @ViewBuilder
+    private func keyValidationLine(for key: String) -> some View {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Text("未输入：Token Plan Key 通常以 sk-cp- 开头，长度应 ≥ 40")
+                .font(.system(size: 10))
+                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+        } else {
+            let result = APIKeyService.validateForQuotaAPI(trimmed)
+            switch result {
+            case .valid:
+                Text("✅ 格式有效（Token Plan Key）")
+                    .font(.system(size: 10))
+                    .foregroundColor(.green)
+            case .nonTokenPlanKey:
+                Text("⚠️ 检测到普通 API Key（sk-），请换成 Token Plan 专用 Key（sk-cp-）")
+                    .font(.system(size: 10))
+                    .foregroundColor(.orange)
+            case .invalidFormat:
+                Text("❌ 格式不正确或过短（需要前缀 + 长度 ≥ 40）")
+                    .font(.system(size: 10))
+                    .foregroundColor(.red)
+            case .missing:
+                Text("未输入：Token Plan Key 通常以 sk-cp- 开头，长度应 ≥ 40")
+                    .font(.system(size: 10))
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
+            }
+        }
     }
 }

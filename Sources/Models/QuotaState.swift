@@ -4,7 +4,7 @@ import Foundation
 class QuotaState: ObservableObject {
     @Published var models: [ModelQuota] = []
     @Published var isLoading: Bool = false
-    @Published var lastError: String?
+    @Published var lastError: AppError?
     @Published var lastUpdatedAt: Date?
     @Published var setupReason: SetupReason?
 
@@ -32,7 +32,7 @@ class QuotaState: ObservableObject {
             ?? cachedModels.first
     }
 
-    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence.shared) {
+    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence()) {
         self.persistence = persistence
         if let (loaded, at) = persistence.loadCachedQuota() {
             cachedModels = loaded

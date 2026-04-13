@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 
 @MainActor
+/// AppKit 菜单栏控制器：负责状态栏渲染、轮询刷新、错误退避重试、睡眠/网络恢复刷新、更新检查等编排。
 final class StatusBarController {
     private var statusItem: NSStatusItem
     private let quotaState: QuotaState
@@ -17,17 +18,19 @@ final class StatusBarController {
 
     private var cancellables = Set<AnyCancellable>()
     private var timers: [String: Timer] = [:]
+    /// 刷新动画状态：0 = 无动画，1 = ↻ 帧，2 = ⟳ 帧
+    private var refreshAnimationFrame: Int = 0
 
     // MARK: - Timer Documentation
     // polling: 每 30/60/120/300 秒触发一次（用户可配置），负责自动刷新配额数据
     // updateCheck: 每 6 小时触发一次，检查 GitHub 是否有新版本发布
     // menubarHint: 固定 30 秒触发一次，用于菜单栏标题的实时倒计时更新（如剩余时间）
 
-    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence.shared) {
+    init(persistence: QuotaStatePersistence = UserDefaultsQuotaPersistence()) {
         quotaState = QuotaState(persistence: persistence)
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let apiKey = Self.resolvedAPIKey()
-        let validation = APIKeyResolver.validateForQuotaAPI(apiKey)
+        let validation = APIKeyService.validateForQuotaAPI(apiKey)
         switch validation {
         case .valid:
             quotaState.setupReason = nil
@@ -73,14 +76,16 @@ final class StatusBarController {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.rebuildAPIService()
-            self?.restartPollingFromUserDefaults()
-            self?.updateStatusBarColor()
+            Task { @MainActor in
+                self?.rebuildAPIService()
+                self?.restartPollingFromUserDefaults()
+                self?.updateStatusBarColor()
+            }
         }
     }
 
     private static func resolvedAPIKey() -> String {
-        AccountManager.shared.apiKeyForActiveAccount() ?? APIKeyResolver.resolve()
+        APIKeyService.resolve()
     }
 
     private func menuBarDisplayMode() -> MenuBarDisplayMode {
@@ -243,7 +248,7 @@ final class StatusBarController {
 
     private func rebuildAPIService() {
         let key = Self.resolvedAPIKey()
-        let validation = APIKeyResolver.validateForQuotaAPI(key)
+        let validation = APIKeyService.validateForQuotaAPI(key)
         switch validation {
         case .valid:
             quotaState.setupReason = nil
@@ -275,7 +280,7 @@ final class StatusBarController {
     private func attemptBindAPIServiceIfNeeded() {
         guard apiService == nil else { return }
         let key = Self.resolvedAPIKey()
-        let validation = APIKeyResolver.validateForQuotaAPI(key)
+        let validation = APIKeyService.validateForQuotaAPI(key)
         switch validation {
         case .valid:
             quotaState.setupReason = nil
@@ -290,6 +295,7 @@ final class StatusBarController {
     private func refresh() {
         attemptBindAPIServiceIfNeeded()
         quotaState.isLoading = true
+        startRefreshAnimation()
         updateStatusBarColor()
 
         guard let api = apiService else {
@@ -308,19 +314,20 @@ final class StatusBarController {
             defer {
                 Task { @MainActor in
                     quotaState.isLoading = false
+                    self.stopRefreshAnimation()
                     self.updateStatusBarColor()
                 }
             }
 
             do {
                 let models = try await api.fetchQuota()
-                #if DEBUG
-                let issues = CacheConsistencyChecker.validationIssues(for: models)
-                if !issues.isEmpty {
-                    print("MiniMax Status Bar [DEBUG] quota validation: \(issues.joined(separator: "; "))")
-                }
-                #endif
                 await MainActor.run {
+                    #if DEBUG
+                    let issues = CacheConsistencyChecker.validationIssues(for: models, against: quotaState.cachedModels)
+                    if !issues.isEmpty {
+                        print("MiniMax Status Bar [DEBUG] quota validation: \(issues.joined(separator: "; "))")
+                    }
+                    #endif
                     quotaState.commitSuccessfulFetch(models: models)
                     let primaryName = quotaState.primaryModel?.modelName ?? ""
                     UsageHistoryRecorder.recordSnapshot(models: models, primaryModelName: primaryName)
@@ -351,9 +358,31 @@ final class StatusBarController {
             }
         } else {
             retryCount = 0
-            quotaState.lastError = sanitizedError(error)
+            quotaState.lastError = AppError.wrap(error)
             cancelTimer(name: "menubarHint")
             updateStatusBarColor()
+        }
+    }
+
+    private func startRefreshAnimation() {
+        refreshAnimationFrame = 1
+        registerTimer(name: "refreshAnimation", interval: 0.4) { [weak self] in
+            guard let self = self else { return }
+            self.refreshAnimationFrame = self.refreshAnimationFrame == 1 ? 2 : 1
+            self.updateStatusBarColor()
+        }
+    }
+
+    private func stopRefreshAnimation() {
+        cancelTimer(name: "refreshAnimation")
+        refreshAnimationFrame = 0
+    }
+
+    private var refreshAnimationSymbol: String {
+        switch refreshAnimationFrame {
+        case 1: return "↻"
+        case 2: return "⟳"
+        default: return ""
         }
     }
 
@@ -375,45 +404,6 @@ final class StatusBarController {
         registerTimer(name: "polling", interval: interval) { [weak self] in
             self?.refresh()
         }
-    }
-
-    private func sanitizedError(_ error: Error) -> String {
-        if let apiError = error as? MiniMaxAPIError {
-            switch apiError {
-            case .missingAPIKey:
-                return """
-                未找到 MiniMax API Key
-
-                自动查找路径：
-                1. 环境变量 MINIMAX_API_KEY
-                2. ~/.openclaw/.env
-                3. ~/.openclaw/openclaw.json
-
-                OpenClaw 用户重启 app 即可自动读取
-                其他用户请在终端执行：
-                export MINIMAX_API_KEY=your_key
-                """
-            case .serverError(401):
-                return """
-                API Key 验证失败（401）
-
-                请确认使用的是 Token Plan Key
-                而非普通 Open Platform API Key
-
-                Token Plan Key 以 sk-cp- 开头
-                前往：platform.minimaxi.com/user-center/payment/token-plan
-                获取 Token Plan Key
-                """
-            default:
-                break
-            }
-        }
-        let msg = error.localizedDescription
-        return msg.replacingOccurrences(
-            of: #"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"#,
-            with: "[IP]",
-            options: .regularExpression
-        )
     }
 
     private func applyPendingUpdateMenubarIndicator(to button: NSStatusBarButton) {
@@ -462,7 +452,7 @@ final class StatusBarController {
         let tag = primary.statusBarAbbreviation
         let staleIndicator = quotaState.hasData ? "" : "~"
         let verboseSuffix = menuBarDisplayMode() == .verbose ? " \(primary.formattedRemainingCountShort)" : ""
-        let loadPrefix = quotaState.isLoading ? "↻ " : ""
+        let loadPrefix = quotaState.isLoading ? "\(refreshAnimationSymbol) " : ""
 
         if tag.isEmpty {
             button.title = " \(loadPrefix)\(dot) \(staleIndicator)\(displayPct)%\(verboseSuffix)"

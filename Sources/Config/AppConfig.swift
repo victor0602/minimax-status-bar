@@ -16,10 +16,6 @@ enum AppStorageKeys {
     static let lowQuotaThresholdPercent = "lowQuotaThresholdPercent"
     /// When remaining ≥ this, low-quota notify latch resets (default 20)
     static let lowQuotaRecoverPercent = "lowQuotaRecoverPercent"
-    /// Multi-account: use stored profiles instead of env-only resolution
-    static let multiAccountEnabled = "multiAccountEnabled"
-    static let activeAccountId = "activeAccountId"
-    static let storedAccountsJSON = "storedAccountsJSON.v1"
 }
 
 extension Notification.Name {
