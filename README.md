@@ -51,7 +51,7 @@
 | **低配额通知** | 主力模型余量 &lt;10% 时推送一次，回到 ≥20% 后允许再次提醒 |
 | **自动更新** | 检测 GitHub Releases，一键下载安装并重启，无需手动操作 |
 | **新模型兜底** | 未适配的新模型标注「未适配」标签，不静默丢失数据 |
-| **首次引导** | 无 Key 或 Key 格式错误时显示引导页，而不是错误堆栈 |
+| **首次引导** | 无 Key 或 Key 格式错误时显示引导页，并提供实时密钥格式校验反馈 |
 ---
 
 ## 安装
@@ -108,7 +108,7 @@ graph TB
     end
 
     subgraph Services["Service Layer"]
-        APIKeyResolver["APIKeyResolver\n三级密钥解析\nenv → .env → .json"]
+        APIKeyService["APIKeyService\n三级密钥解析与校验\nenv → .env → .json"]
         MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\n30s 超时"]
         UpdateService["UpdateService\nGitHub Releases\n6h 检查"]
         NotificationService["NotificationService\n低配额单次提醒"]
@@ -124,7 +124,7 @@ graph TB
 
     main --> AppDelegate
     AppDelegate --> StatusBarController
-    StatusBarController --> APIKeyResolver
+    StatusBarController --> APIKeyService
     StatusBarController --> MiniMaxAPI
     StatusBarController --> QuotaState
     StatusBarController --> UpdateState
@@ -188,7 +188,7 @@ Sources/
 ├── Models/         # 数据模型（ModelQuota、QuotaState、UpdateState 等）
 ├── Services/       # 业务服务（API、密钥解析、更新、通知、开机启动）
 └── UI/             # 用户界面（StatusBarController、DetailView 等）
-Tests/              # 单元测试（25 个用例）
+Tests/              # 单元测试（60+ 用例）
 Resources/          # 图标资源
 scripts/            # 构建脚本（DMG 打包）
 .github/workflows/  # CI/CD（tag 触发自动发布）
@@ -197,6 +197,31 @@ scripts/            # 构建脚本（DMG 打包）
 ---
 
 ## Changelog
+
+### v2.0.2
+
+**文档与工程对齐**
+
+- 同步优化设计文档进度（已完成项/未完成项与仓库实现一致）
+- 发布计划细化为 `v2.1.2` / `v2.2.0` / `v2.2.x`，便于按批次推进
+
+**稳定性与可维护性**
+
+- 引入 `AppError` 统一错误表示，替代 UI 层字符串错误拼接
+- 增强 `CacheConsistencyChecker`：支持与缓存版本做语义对拍
+- 用量历史增加 30 天保留策略，并在每天 3:00 后触发清理
+
+**密钥与引导体验**
+
+- 统一 `APIKeyService` 入口（兼容保留 `APIKeyResolver` 实现）
+- `SetupGuidanceView` 增加实时 Key 格式校验（检测值 + 粘贴值，不落盘）
+- 移除多账户相关能力与文档描述，回归 Token Plan 单账户前提
+
+**测试覆盖**
+
+- 新增 `MiniMaxAPIServiceTests`（URLProtocol Mock：网络/HTTP/解码/业务错误）
+- 新增 `NetworkMonitorTests`（网络恢复状态机）
+- 全项目单测规模扩展到 60+ 用例
 
 ### v2.0.1
 
