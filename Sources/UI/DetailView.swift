@@ -12,6 +12,8 @@ struct DetailView: View {
     @State private var timelineAnchor = Date()
     @State private var isExiting = false
     @State private var showAbout = false
+    @State private var showHistory = false
+    @State private var historyRecords: [DailyUsageRecord] = []
     @StateObject private var updateState = UpdateState.shared
     @AppStorage(AppStorageKeys.prefersAutomaticUpdateInstall) private var prefersAutomaticUpdateInstall = false
 
@@ -48,7 +50,7 @@ struct DetailView: View {
                 .scaleEffect(isExiting ? 0.85 : 1.0)
                 .opacity(isExiting ? 0.0 : 1.0)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: UISpec.panelCornerRadius)
                         .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
                 )
                 .overlay(DownloadingUpdateOverlayView(updateState: updateState))
@@ -72,8 +74,8 @@ struct DetailView: View {
             Group {
                 if showAbout {
                     AboutPanelView(prefersAutomaticUpdateInstall: $prefersAutomaticUpdateInstall)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, UISpec.contentVerticalPadding)
+                        .padding(.vertical, UISpec.compactVerticalPadding)
                         .transition(.move(edge: .top).combined(with: .opacity))
                     Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
                 }
@@ -87,14 +89,48 @@ struct DetailView: View {
                     DetailEmptyStateView(quotaState: quotaState, onRefresh: onRefresh)
                     skeletonView
                     CategoryCardListView(grouped: grouped)
+                    if showHistory {
+                        UsageHistoryPanelView(
+                            records: historyRecords,
+                            onRefresh: reloadHistory,
+                            onExport: exportHistoryCSV
+                        )
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, UISpec.contentVerticalPadding)
             }
             .frame(maxHeight: NSScreen.main.map { $0.frame.height * 0.6 } ?? 400)
             Rectangle().fill(.separator).frame(height: 0.5).opacity(0.5)
-            BottomBarView(updateState: updateState, onExit: triggerExitAnimation)
+            BottomBarView(
+                updateState: updateState,
+                isHistoryVisible: showHistory,
+                onToggleHistory: toggleHistoryPanel,
+                onExit: triggerExitAnimation
+            )
         }
         .ifPlatformGlass()
+        .onAppear {
+            reloadHistory()
+        }
+    }
+
+    private func toggleHistoryPanel() {
+        withAnimation(PopoverChrome.aboutSpring) {
+            showHistory.toggle()
+        }
+        if showHistory {
+            reloadHistory()
+        }
+    }
+
+    private func reloadHistory() {
+        historyRecords = (try? UsageHistorySQLiteStore.shared.loadDailyRecords(limit: 90)) ?? []
+    }
+
+    private func exportHistoryCSV() {
+        let service = ExportService()
+        try? service.exportCSV(from: UsageHistorySQLiteStore.shared)
     }
 
     @ViewBuilder

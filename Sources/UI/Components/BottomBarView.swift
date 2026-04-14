@@ -3,6 +3,8 @@ import SwiftUI
 
 struct BottomBarView: View {
     @ObservedObject var updateState: UpdateState
+    let isHistoryVisible: Bool
+    let onToggleHistory: () -> Void
     let onExit: () -> Void
 
     var body: some View {
@@ -19,8 +21,8 @@ struct BottomBarView: View {
             }
             versionBar
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, UISpec.contentHorizontalPadding)
+        .padding(.vertical, UISpec.contentVerticalPadding)
     }
 
     private func updateButton(_ release: ReleaseInfo) -> some View {
@@ -34,7 +36,7 @@ struct BottomBarView: View {
                     .font(.system(size: 11))
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
         .buttonStyle(.plain)
         .ifPlatformButton()
@@ -63,7 +65,7 @@ struct BottomBarView: View {
                     .font(.system(size: 11))
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
         .buttonStyle(.plain)
         .ifPlatformButton()
@@ -83,30 +85,27 @@ struct BottomBarView: View {
                     .font(.system(size: 9))
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
         .buttonStyle(.plain)
         .ifPlatformButton()
     }
 
-    /// 打开设置窗口并跳转到用量历史标签页
+    /// 在主界面展开/收起用量历史卡片
     private var historyButton: some View {
-        Button(action: {
-            Task { @MainActor in
-                (NSApp.delegate as? AppDelegate)?.openSettingsWindow(tab: 2)
-            }
-        }) {
+        Button(action: { onToggleHistory() }) {
             HStack(spacing: 3) {
                 Image(systemName: "chart.bar")
                     .font(.system(size: 10))
-                Text("用量历史")
+                Text(isHistoryVisible ? "收起历史" : "用量历史")
                     .font(.system(size: 11))
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 5)
+            .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
         .buttonStyle(.plain)
         .ifPlatformButton()
+        .help(isHistoryVisible ? "收起主界面的用量历史" : "在主界面展开用量历史")
     }
 
     private var versionBar: some View {
@@ -121,24 +120,6 @@ struct BottomBarView: View {
                     .font(.system(size: 9))
                     .foregroundColor(.blue.opacity(0.7))
             }
-
-            Spacer()
-
-            Button(action: {
-                if let url = URL(string: "https://github.com/victor0602/minimax-status-bar") {
-                    NSWorkspace.shared.open(url)
-                }
-            }) {
-                HStack(spacing: 2) {
-                    Image(systemName: "curlybraces")
-                        .font(.system(size: 8))
-                    Text("GitHub")
-                        .font(.system(size: 9))
-                }
-                .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-            }
-            .buttonStyle(.plain)
-            .help("在 GitHub 上查看源码")
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 4)

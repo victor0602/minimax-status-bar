@@ -37,11 +37,14 @@ final class MiniMaxAPIService: APIServiceProtocol {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // DEBUG 下添加请求 ID 便于排查问题
-        #if DEBUG
-        let requestID = APIConfigService.generateRequestID()
-        request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
-        #endif
+        // 请求 ID：DEBUG 下自动注入，RELEASE 下可通过配置启用（便于排查问题）
+        if APIConfigService.shared.enableRequestID {
+            let requestID = APIConfigService.generateRequestID()
+            request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
+            #if DEBUG
+            print("[MiniMaxAPIService] Request ID: \(requestID)")
+            #endif
+        }
 
         let t0 = Date()
         let (data, response): (Data, URLResponse)

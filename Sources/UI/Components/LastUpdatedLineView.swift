@@ -9,7 +9,7 @@ struct LastUpdatedLineView: View {
             .font(.system(size: 10))
             .foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 6)
+            .padding(.horizontal, UISpec.contentHorizontalPadding)
+            .padding(.bottom, UISpec.compactVerticalPadding)
     }
 }

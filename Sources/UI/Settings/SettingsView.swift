@@ -75,6 +75,19 @@ struct SettingsView: View {
                 ))
             }
             Section("诊断") {
+                Picker("API 超时时间", selection: Binding(
+                    get: { Int(APIConfigService.shared.timeoutInterval) },
+                    set: { APIConfigService.shared.timeoutInterval = TimeInterval($0) }
+                )) {
+                    ForEach(APIConfigService.timeoutOptions, id: \.self) { option in
+                        Text("\(Int(option)) 秒").tag(Int(option))
+                    }
+                }
+                Toggle("启用请求 ID（用于排查问题）", isOn: Binding(
+                    get: { APIConfigService.shared.enableRequestID },
+                    set: { APIConfigService.shared.enableRequestID = $0 }
+                ))
+                Divider()
                 HStack {
                     Text("上次请求耗时")
                     Spacer()
@@ -98,7 +111,7 @@ struct SettingsView: View {
     }
 
     private var historyTab: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: UISpec.cardCornerRadius) {
             Text("按日聚合已用量（interval 已用次数）；数据存于 Application Support。")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -140,7 +153,7 @@ struct SettingsView: View {
             }
             Spacer()
         }
-        .padding()
+        .padding(UISpec.contentHorizontalPadding)
     }
 
     private func reloadHistory() {

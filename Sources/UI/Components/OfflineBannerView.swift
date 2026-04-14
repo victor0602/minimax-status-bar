@@ -18,8 +18,8 @@ struct OfflineBannerView: View {
                 }
                 .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 6)
+                .padding(.horizontal, UISpec.contentHorizontalPadding)
+                .padding(.bottom, UISpec.compactVerticalPadding)
             }
         }
     }

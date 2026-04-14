@@ -21,6 +21,43 @@ struct ModelUsage: Codable, Identifiable {
     }
 }
 
+// MARK: - 共享 DateFormatter 实例（避免重复创建开销）
+
+/// 日期格式化器 - 日期键（yyyy-MM-dd）
+private let dateKeyFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd"
+    return f
+}()
+
+/// 日期格式化器 - 短日期（M/d）
+private let shortDateFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "M/d"
+    return f
+}()
+
+/// 日期格式化器 - 周键（yyyy-'W'ww）
+private let weekKeyFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-'W'ww"
+    return f
+}()
+
+/// 日期格式化器 - 月键（yyyy-MM）
+private let monthKeyFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM"
+    return f
+}()
+
+/// 日期格式化器 - 月份名称（yyyy年M月）
+private let monthNameFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy年M月"
+    return f
+}()
+
 /// 每日用量记录
 struct DailyUsageRecord: Codable, Identifiable {
     var id: String { dateKey }
@@ -35,16 +72,12 @@ struct DailyUsageRecord: Codable, Identifiable {
     
     /// 日期字符串键，格式 "yyyy-MM-dd"
     var dateKey: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        dateKeyFormatter.string(from: date)
     }
     
     /// 格式化日期显示
     var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M/d"
-        return formatter.string(from: date)
+        shortDateFormatter.string(from: date)
     }
     
     /// 主力模型已用量
@@ -79,9 +112,7 @@ struct WeeklyAggregation: Identifiable {
     
     /// 周标签显示
     var weekLabel: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "M/d"
-        return "\(formatter.string(from: weekStartDate))-\(formatter.string(from: weekEndDate))"
+        "\(shortDateFormatter.string(from: weekStartDate))-\(shortDateFormatter.string(from: weekEndDate))"
     }
     
     /// 从日记录聚合
@@ -111,9 +142,7 @@ struct WeeklyAggregation: Identifiable {
         let primaryModel = modelTotals.max { $0.value < $1.value }?.key ?? ""
         let primaryConsumed = modelTotals[primaryModel] ?? 0
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-'W'ww"
-        let weekKey = formatter.string(from: weekStart)
+        let weekKey = weekKeyFormatter.string(from: weekStart)
         
         return WeeklyAggregation(
             weekStartDate: weekStart,
@@ -134,11 +163,8 @@ struct MonthlyAggregation: Identifiable {
     let yearMonth: String
     /// 月份名称
     var monthName: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        if let date = formatter.date(from: yearMonth) {
-            formatter.dateFormat = "yyyy年M月"
-            return formatter.string(from: date)
+        if let date = monthKeyFormatter.date(from: yearMonth) {
+            return monthNameFormatter.string(from: date)
         }
         return yearMonth
     }
@@ -161,12 +187,9 @@ struct MonthlyAggregation: Identifiable {
     static func aggregate(from records: [DailyUsageRecord]) -> MonthlyAggregation? {
         guard !records.isEmpty else { return nil }
         
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        
         // 按月分组
-        let monthKey = formatter.string(from: records[0].date)
-        let monthRecords = records.filter { formatter.string(from: $0.date) == monthKey }
+        let monthKey = monthKeyFormatter.string(from: records[0].date)
+        let monthRecords = records.filter { monthKeyFormatter.string(from: $0.date) == monthKey }
         
         let totalConsumed = monthRecords.reduce(0) { $0 + $1.totalConsumed }
         

@@ -15,7 +15,7 @@ struct CategoryCardListView: View {
                         .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                         .tracking(0.5)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, UISpec.contentHorizontalPadding)
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
@@ -23,7 +23,7 @@ struct CategoryCardListView: View {
                     Text("以下模型暂未识别分类，数据仍然有效")
                         .font(.system(size: 9))
                         .foregroundColor(Color(nsColor: .tertiaryLabelColor))
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, UISpec.contentHorizontalPadding)
                         .padding(.bottom, 4)
                 }
 
@@ -35,7 +35,7 @@ struct CategoryCardListView: View {
                 }
             }
             .ifPlatformCard()
-            .padding(.horizontal, 8)
+            .padding(.horizontal, UISpec.contentVerticalPadding)
         }
     }
 }

@@ -36,7 +36,16 @@ enum ModelCategory: String, CaseIterable {
 extension ModelQuota {
     var category: ModelCategory {
         let name = modelName.lowercased()
-        if name.contains("minimax-m") {
+        if name.contains("coding-plan-search") {
+            // 联网搜索能力，归入文本能力分组
+            return .text
+        } else if name.contains("coding-plan-vlm") {
+            // 图像识别/视觉理解能力，归入图像分组
+            return .image
+        } else if name.contains("lyrics_generation") {
+            // 歌词创作能力，归入音乐分组
+            return .music
+        } else if name.contains("minimax-m") {
             return .text
         } else if name.contains("hailuo") {
             return .video
@@ -125,12 +134,23 @@ struct ModelQuota {
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
         let remainingInterval = raw.currentIntervalRemainingCount
         let consumedInterval = raw.currentIntervalTotalCount - raw.currentIntervalRemainingCount
-        let consumedPct = raw.currentIntervalTotalCount > 0
-            ? consumedInterval * 100 / raw.currentIntervalTotalCount
-            : 0
+
+        // 计算已用百分比，处理边界情况
+        let consumedPct: Int
+        if raw.currentIntervalTotalCount > 0 {
+            let rawPercent = consumedInterval * 100 / raw.currentIntervalTotalCount
+            // 边界处理：如果有消耗但百分比四舍五入为0，显示为1%
+            consumedPct = consumedInterval > 0 && rawPercent == 0 ? 1 : rawPercent
+        } else {
+            consumedPct = 0
+        }
 
         let weeklyRemaining = raw.currentWeeklyRemainingCount
         let weeklyConsumed = raw.currentWeeklyTotalCount - raw.currentWeeklyRemainingCount
+
+        #if DEBUG
+        print("[MiniMax] \(raw.modelName): total=\(raw.currentIntervalTotalCount), remaining=\(remainingInterval), consumed=\(consumedInterval), consumedPct=\(consumedPct)%")
+        #endif
 
         return ModelQuota(
             modelName: raw.modelName,
@@ -220,6 +240,10 @@ struct ModelQuota {
 
     var displayName: String {
         switch modelName.lowercased() {
+        case let n where n.contains("coding-plan-search"):
+            return "联网搜索"
+        case let n where n.contains("coding-plan-vlm"):
+            return "图像识别"
         case let n where n.contains("m2.7"):
             return "MiniMax M2.7"
         case let n where n.contains("minimax-m"):
@@ -236,6 +260,8 @@ struct ModelQuota {
             return "Music 2.6"
         case let n where n.contains("music-cover"):
             return "Music Cover"
+        case let n where n.contains("lyrics_generation"):
+            return modelName  // 歌词创作显示原模型名称
         case let n where n.contains("music"):
             return "Music"
         case let n where n.contains("image-01"):
@@ -249,22 +275,32 @@ struct ModelQuota {
 
     var remainingPercent: Int {
         guard totalCount > 0 else { return 0 }
-        return remainingCount * 100 / totalCount
+        let rawPercent = remainingCount * 100 / totalCount
+        // 边界处理：如果剩余量很少（接近0）但百分比四舍五入为100，显示为剩余量
+        // 如果剩余量大于0但百分比四舍五入为100，显示为99%
+        if remainingCount > 0 && rawPercent >= 100 {
+            return 99
+        }
+        return rawPercent
     }
 
     /// 确保与 consumedPercent 互补为 100%，解决取整导致的"加起来不是 100%"问题
     /// 例如: consumed=1, remaining=99 (都四舍五入)，但逻辑上应该 0+100 或 1+99
     var remainingPercentForDisplay: Int {
-        return 100 - intervalConsumedPercent
+        // 直接使用剩余量计算百分比，而不是 100 - 已用率
+        // 因为小数取整会导致 0% + 100% = 100% 看起来正确，但实际已用 103/30000 剩余应该是 ~34%
+        return remainingPercent
     }
 
     /// Ultra-short tag for `NSStatusItem` title (heavy M2.7 users get an instant read).
+    /// 注意：歌词创作(lyrics_generation)显示原模型名称，不使用缩写
     var statusBarAbbreviation: String {
         let n = modelName.lowercased()
         if n.contains("m2.7") { return "2.7·" }
         if n.contains("minimax-m") { return "M·" }
         if n.contains("hailuo") { return "V·" }
         if n.contains("speech") { return "S·" }
+        if n.contains("lyrics_generation") { return "" }  // 歌词创作显示原名称
         if n.contains("music") { return "Mu·" }
         if n.contains("image") { return "I·" }
         return ""
