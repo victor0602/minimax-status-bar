@@ -11,7 +11,7 @@ enum CacheConsistencyChecker {
         guard !models.isEmpty else { return "empty" }
 
         let sorted = models.sorted { $0.modelName < $1.modelName }
-        var hasher = 0u64
+        var hasher = UInt64(0)
 
         for model in sorted {
             let key = "\(model.modelName):\(model.totalCount):\(model.remainingCount)"
