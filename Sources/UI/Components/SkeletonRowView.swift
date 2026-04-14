@@ -19,8 +19,8 @@ struct SkeletonRowView: View {
                 bar(60, 10, radius: 4)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, UISpec.contentHorizontalPadding)
+        .padding(.vertical, UISpec.contentVerticalPadding)
         .overlay {
             GeometryReader { geo in
                 let w = geo.size.width
@@ -52,8 +52,8 @@ struct SkeletonRowView: View {
                         RoundedRectangle(cornerRadius: 4).frame(width: 60, height: 10)
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, UISpec.contentHorizontalPadding)
+                .padding(.vertical, UISpec.contentVerticalPadding)
             )
         }
         .onAppear {

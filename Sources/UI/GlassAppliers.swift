@@ -1,5 +1,15 @@
 import SwiftUI
 
+enum UISpec {
+    static let panelCornerRadius: CGFloat = 16
+    static let cardCornerRadius: CGFloat = 12
+    static let buttonCornerRadius: CGFloat = 8
+
+    static let contentHorizontalPadding: CGFloat = 14
+    static let contentVerticalPadding: CGFloat = 8
+    static let compactVerticalPadding: CGFloat = 6
+}
+
 // MARK: - Visual policy (Liquid Glass vs CI)
 //
 // 产品定位是「瞟一眼即知的感知工具」，观感必须可信；但 **CI 与可复现构建** 当前基于较旧 Xcode。
@@ -15,7 +25,7 @@ final class GlassEffectApplier {
     @ViewBuilder
     func apply(to view: some View) -> some View {
         view.background(Color(nsColor: .windowBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: UISpec.panelCornerRadius))
     }
 }
 
@@ -27,7 +37,8 @@ final class ButtonStyleApplier {
     @ViewBuilder
     func apply(to view: some View) -> some View {
         view.background(Color.primary.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
+            .modifier(HoverHighlightModifier())
     }
 }
 
@@ -38,6 +49,24 @@ final class CardStyleApplier {
 
     @ViewBuilder
     func apply(to view: some View) -> some View {
-        view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        view.background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: UISpec.cardCornerRadius))
+    }
+}
+
+private struct HoverHighlightModifier: ViewModifier {
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius)
+                    .stroke(Color.accentColor.opacity(isHovered ? 0.35 : 0), lineWidth: 1)
+            )
+            .opacity(isHovered ? 0.96 : 1.0)
+            .scaleEffect(isHovered ? 1.01 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .onHover { hovering in
+                isHovered = hovering
+            }
     }
 }

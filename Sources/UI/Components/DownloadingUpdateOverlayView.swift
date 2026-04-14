@@ -24,6 +24,7 @@ struct DownloadingUpdateOverlayView: View {
                             }
                             .font(.system(size: 11))
                             .buttonStyle(.plain)
+                            .ifPlatformButton()
                         } else if updateState.installPhase == "安装中" {
                             Text("正在安装更新...")
                                 .font(.system(size: 13, weight: .medium))

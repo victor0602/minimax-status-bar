@@ -70,7 +70,7 @@ struct AboutPanelView: View {
         }
         .padding(14)
         .background(Color(nsColor: .windowBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: UISpec.cardCornerRadius))
         .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 2)
     }
 
@@ -93,5 +93,6 @@ struct AboutPanelView: View {
             }
         }
         .buttonStyle(.plain)
+        .ifPlatformButton()
     }
 }

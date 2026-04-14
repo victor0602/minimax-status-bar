@@ -47,7 +47,7 @@ struct SetupGuidanceView: View {
             VStack(alignment: .leading, spacing: 8) {
                 stepRow(number: 1, text: "在 OpenClaw 或环境变量中配置 MINIMAX_API_KEY（Token Plan）")
                 stepRow(number: 2, text: "保存后点击下方「重新检测」，无需重启（若从文件读取已更新）")
-                stepRow(number: 3, text: "菜单栏圆点表示主力模型剩余比例，点开可查看各模态")
+                stepRow(number: 3, text: "实时校验仅用于格式检查；点击「重新检测」后会以最新配置重新连接")
             }
 
             HStack(spacing: 10) {
@@ -68,9 +68,9 @@ struct SetupGuidanceView: View {
                     keyValidationLine(for: pastedKey)
                 }
             }
-            .padding(12)
+            .padding(UISpec.cardCornerRadius)
             .background(Color.primary.opacity(0.03))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: UISpec.cardCornerRadius))
 
             VStack(spacing: 8) {
                 Button(action: {
@@ -84,7 +84,7 @@ struct SetupGuidanceView: View {
                 }
                 .buttonStyle(.plain)
                 .background(Color.accentColor.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
 
                 HStack(spacing: 8) {
                     secondaryButton("打开控制台") {
@@ -99,11 +99,11 @@ struct SetupGuidanceView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(UISpec.panelCornerRadius)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.primary.opacity(0.04))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 10)
+        .clipShape(RoundedRectangle(cornerRadius: UISpec.cardCornerRadius))
+        .padding(.horizontal, UISpec.contentVerticalPadding + 2)
         .padding(.top, 4)
         .onAppear {
             refreshDetectedKey()
@@ -146,7 +146,7 @@ struct SetupGuidanceView: View {
         }
         .buttonStyle(.plain)
         .background(Color.primary.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
     }
 
     private func refreshDetectedKey() {

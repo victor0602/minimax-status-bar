@@ -53,7 +53,8 @@ struct ModelRowView: View {
 
                     Capsule()
                         .fill(progressColor(for: model.remainingPercent))
-                        .frame(width: geometry.size.width * CGFloat(model.remainingPercent) / 100, height: 5)
+                        // 确保进度条最小显示 2%，避免完全看不见
+                        .frame(width: max(geometry.size.width * CGFloat(model.remainingPercent) / 100, model.remainingPercent > 0 ? 2 : 0), height: 5)
                 }
             }
             .frame(height: 5)
@@ -81,8 +82,8 @@ struct ModelRowView: View {
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, UISpec.contentHorizontalPadding)
+        .padding(.vertical, UISpec.contentVerticalPadding)
         .contentShape(Rectangle())
     }
 
