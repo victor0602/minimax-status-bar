@@ -4,12 +4,13 @@ import XCTest
 final class QuotaStatePersistenceTests: XCTestCase {
     @MainActor
     func testQuotaStateLoadsInitialCacheFromPersistence() {
+        // API usage=50, total=100 → remaining=50
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyRemainingCount: 500,
+            currentWeeklyUsageCount: 500,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 86_400_000
@@ -27,12 +28,13 @@ final class QuotaStatePersistenceTests: XCTestCase {
     func testCommitSuccessfulFetchPersistsViaPersistence() {
         let mock = MockQuotaPersistence()
         let state = QuotaState(persistence: mock)
+        // API usage=7, total=10 → remaining=3
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 10,
-            currentIntervalRemainingCount: 3,
+            currentIntervalUsageCount: 7,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
