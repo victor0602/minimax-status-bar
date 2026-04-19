@@ -82,15 +82,16 @@ struct BaseResp: Codable {
     }
 }
 
-/// 原始 JSON。注意：接口字段名含 `usage_count`，但语义是 **剩余次数**（与控制台「剩余」一致），不是「已用」。
+/// 原始 JSON。接口字段名 `current_interval_usage_count` = 本周期已用次数，
+/// `current_weekly_usage_count` = 本周已用次数。剩余次数由 total − usage 推算。
 struct ModelQuotaRaw: Codable {
     let modelName: String
     let currentIntervalTotalCount: Int
-    /// 周期内 **剩余** 次数（JSON：`current_interval_usage_count`，勿按字面当成已用）
-    let currentIntervalRemainingCount: Int
+    /// 周期内已用次数（JSON：`current_interval_usage_count`）
+    let currentIntervalUsageCount: Int
     let currentWeeklyTotalCount: Int
-    /// 本周 **剩余** 次数（JSON：`current_weekly_usage_count`）
-    let currentWeeklyRemainingCount: Int
+    /// 本周已用次数（JSON：`current_weekly_usage_count`）
+    let currentWeeklyUsageCount: Int
     let remainsTime: Int64
     let weeklyStartTime: Int64
     let weeklyEndTime: Int64
@@ -98,9 +99,9 @@ struct ModelQuotaRaw: Codable {
     enum CodingKeys: String, CodingKey {
         case modelName = "model_name"
         case currentIntervalTotalCount = "current_interval_total_count"
-        case currentIntervalRemainingCount = "current_interval_usage_count"
+        case currentIntervalUsageCount = "current_interval_usage_count"
         case currentWeeklyTotalCount = "current_weekly_total_count"
-        case currentWeeklyRemainingCount = "current_weekly_usage_count"
+        case currentWeeklyUsageCount = "current_weekly_usage_count"
         case remainsTime = "remains_time"
         case weeklyStartTime = "weekly_start_time"
         case weeklyEndTime = "weekly_end_time"
@@ -132,8 +133,9 @@ struct ModelQuota {
     let fetchedAt: Date
 
     static func from(raw: ModelQuotaRaw) -> ModelQuota {
-        let remainingInterval = raw.currentIntervalRemainingCount
-        let consumedInterval = raw.currentIntervalTotalCount - raw.currentIntervalRemainingCount
+        // API 直接返回已用次数，剩余 = total - 已用
+        let consumedInterval = raw.currentIntervalUsageCount
+        let remainingInterval = raw.currentIntervalTotalCount - raw.currentIntervalUsageCount
 
         // 计算已用百分比，处理边界情况
         let consumedPct: Int
@@ -145,8 +147,8 @@ struct ModelQuota {
             consumedPct = 0
         }
 
-        let weeklyRemaining = raw.currentWeeklyRemainingCount
-        let weeklyConsumed = raw.currentWeeklyTotalCount - raw.currentWeeklyRemainingCount
+        let weeklyConsumed = raw.currentWeeklyUsageCount
+        let weeklyRemaining = raw.currentWeeklyTotalCount - raw.currentWeeklyUsageCount
 
         #if DEBUG
         print("[MiniMax] \(raw.modelName): total=\(raw.currentIntervalTotalCount), remaining=\(remainingInterval), consumed=\(consumedInterval), consumedPct=\(consumedPct)%")

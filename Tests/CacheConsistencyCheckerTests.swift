@@ -3,12 +3,13 @@ import XCTest
 
 final class CacheConsistencyCheckerTests: XCTestCase {
     func testValidModelsProduceNoIssues() {
+        // API usage=75, total=100 → remaining=25
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyRemainingCount: 400,
+            currentWeeklyUsageCount: 600,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -19,12 +20,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testRemainingGreaterThanTotalIsFlagged() {
+        // API usage=15, total=10 → remaining=-5（负数，不合理），应被标记
         let raw = ModelQuotaRaw(
             modelName: "bad",
             currentIntervalTotalCount: 10,
-            currentIntervalRemainingCount: 15,
+            currentIntervalUsageCount: 15,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -36,12 +38,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
 
     func testValidateAgainstCache_FlagsMissingModelsWhenManyDisappear() {
         func raw(name: String) -> ModelQuota {
+            // API usage=90, total=100 → remaining=90
             ModelQuota.from(raw: ModelQuotaRaw(
                 modelName: name,
                 currentIntervalTotalCount: 100,
-                currentIntervalRemainingCount: 10,
+                currentIntervalUsageCount: 90,
                 currentWeeklyTotalCount: 0,
-                currentWeeklyRemainingCount: 0,
+                currentWeeklyUsageCount: 0,
                 remainsTime: 0,
                 weeklyStartTime: 0,
                 weeklyEndTime: 0
@@ -55,22 +58,24 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testValidateAgainstCache_FlagsTotalCountChange() {
+        // cached: usage=10, total=100 → remaining=90
         let cached = [ModelQuota.from(raw: ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 10,
+            currentIntervalUsageCount: 10,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
         ))]
+        // new: usage=10, total=200 → remaining=190
         let newModels = [ModelQuota.from(raw: ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 200,
-            currentIntervalRemainingCount: 10,
+            currentIntervalUsageCount: 10,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -88,12 +93,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testChecksum_SameModelsProduceSameChecksum() {
+        // API usage=75, total=100 → remaining=75
         let raw1 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -101,9 +107,9 @@ final class CacheConsistencyCheckerTests: XCTestCase {
         let raw2 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -114,22 +120,24 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testChecksum_DifferentModelsProduceDifferentChecksum() {
+        // raw1: usage=75, total=100 → remaining=75
         let raw1 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
         )
+        // raw2: usage=25, total=200 → remaining=175
         let raw2 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 200,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 25,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -140,22 +148,24 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testChecksum_OrderIndependent() {
+        // A: usage=75, total=100 → remaining=75
         let rawA = ModelQuotaRaw(
             modelName: "A",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
         )
+        // B: usage=150, total=200 → remaining=50
         let rawB = ModelQuotaRaw(
             modelName: "B",
             currentIntervalTotalCount: 200,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 150,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -167,12 +177,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testValidateChecksum_ReturnsTrueForMatching() {
+        // API usage=75, total=100 → remaining=75
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 25,
+            currentIntervalUsageCount: 75,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -185,12 +196,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     // MARK: - 实质性一致测试
 
     func testModelsAreSubstantiallySame_IdenticalModels() {
+        // usage=50, total=100 → remaining=50
         let raw1 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -198,9 +210,9 @@ final class CacheConsistencyCheckerTests: XCTestCase {
         let raw2 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -211,12 +223,15 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testModelsAreSubstantiallySame_SmallDifferenceAllowed() {
+        // m1: usage=50, total=100 → remaining=50
+        // m2: usage=52, total=100 → remaining=48
+        // 剩余量差2，阈值=100/20=5，允许
         let raw1 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -224,9 +239,9 @@ final class CacheConsistencyCheckerTests: XCTestCase {
         let raw2 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 48, // 2 的差异，阈值是 100/20=5，所以允许
+            currentIntervalUsageCount: 52,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -237,12 +252,15 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testModelsAreSubstantiallySame_LargeDifferenceNotAllowed() {
+        // m1: usage=50, total=100 → remaining=50
+        // m2: usage=60, total=100 → remaining=40
+        // 剩余量差10，阈值=100/20=5，不允许
         let raw1 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -250,9 +268,9 @@ final class CacheConsistencyCheckerTests: XCTestCase {
         let raw2 = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 40, // 10 的差异，阈值是 100/20=5，所以不允许
+            currentIntervalUsageCount: 60,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0
@@ -267,12 +285,13 @@ final class CacheConsistencyCheckerTests: XCTestCase {
     }
 
     func testModelsAreSubstantiallySame_DifferentCounts() {
+        // usage=50, total=100 → remaining=50
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalRemainingCount: 50,
+            currentIntervalUsageCount: 50,
             currentWeeklyTotalCount: 0,
-            currentWeeklyRemainingCount: 0,
+            currentWeeklyUsageCount: 0,
             remainsTime: 0,
             weeklyStartTime: 0,
             weeklyEndTime: 0

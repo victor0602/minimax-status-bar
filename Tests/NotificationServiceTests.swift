@@ -15,15 +15,17 @@ final class NotificationServiceTests: XCTestCase {
     }
 
     /// Helper to create a ModelQuota with given remaining percent
+    /// API 返回 usage_count = 已用，所以 remaining → usage = total - remaining
     private func makeModel(name: String = "MiniMax-M2.7", remainingPercent: Int, remainingMs: Int64 = 3600000) -> ModelQuota {
         let total = 100
         let remaining = total * remainingPercent / 100
+        let used = total - remaining
         return ModelQuota.from(raw: ModelQuotaRaw(
             modelName: name,
             currentIntervalTotalCount: total,
-            currentIntervalRemainingCount: remaining,
+            currentIntervalUsageCount: used,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyRemainingCount: 400,
+            currentWeeklyUsageCount: 600,
             remainsTime: remainingMs,
             weeklyStartTime: 0,
             weeklyEndTime: 86400000
