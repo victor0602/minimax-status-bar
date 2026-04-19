@@ -35,11 +35,11 @@ targets:
     platform: macOS
     sources:
       - Sources
+      - path: Resources/Assets.xcassets
+        buildPhase: resources
     dependencies:
       - package: SQLiteSwift
         product: SQLite
-    resources:
-      - Resources
     settings:
       base:
         INFOPLIST_FILE: Sources/App/Info.plist
