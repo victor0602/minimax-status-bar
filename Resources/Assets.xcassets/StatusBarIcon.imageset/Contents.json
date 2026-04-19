@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "StatusBarIcon.png",
+      "filename" : "StatusBarIcon@1x.png",
       "idiom" : "mac",
       "scale" : "1x"
     },
