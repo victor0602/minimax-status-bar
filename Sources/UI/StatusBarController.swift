@@ -445,9 +445,9 @@ final class StatusBarController {
         }
 
         let primary = primaryModel!
-        // 使用 remainingPercentForDisplay 确保与"已用"互补为 100%
+        // 使用 remainingPercentForDisplay 与 ModelRowView 保持一致
         let pct = primary.remainingPercentForDisplay
-        let displayPct = pct >= 99 ? 100 : pct
+        let displayPct = pct
         let dot = displayPct > 30 ? "🟢" : (displayPct > 10 ? "🟡" : "🔴")
         let tag = primary.statusBarAbbreviation
         let staleIndicator = quotaState.hasData ? "" : "~"

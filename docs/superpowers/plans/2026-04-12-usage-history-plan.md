@@ -426,9 +426,9 @@ final class UsageHistoryServiceTests: XCTestCase {
             ModelQuota.from(raw: ModelQuotaRaw(
                 modelName: "MiniMax-M2.7",
                 currentIntervalTotalCount: 10000,
-                currentIntervalUsageCount: 5000,
+                currentIntervalRemainingCount: 5000,
                 currentWeeklyTotalCount: 40000,
-                currentWeeklyUsageCount: 20000,
+                currentWeeklyRemainingCount: 20000,
                 remainsTime: 86400000,
                 weeklyStartTime: 0,
                 weeklyEndTime: 604800000
@@ -443,14 +443,14 @@ final class UsageHistoryServiceTests: XCTestCase {
     }
     
     func testPreventsDuplicateRecording() {
-        // API usage=8000, total=10000 → remaining=2000
+        // API 返回 remaining=2000, total=10000 → consumed=8000
         let models = [
             ModelQuota.from(raw: ModelQuotaRaw(
                 modelName: "MiniMax-M2.7",
                 currentIntervalTotalCount: 10000,
-                currentIntervalUsageCount: 8000,
+                currentIntervalRemainingCount: 2000,
                 currentWeeklyTotalCount: 40000,
-                currentWeeklyUsageCount: 30000,
+                currentWeeklyRemainingCount: 10000,
                 remainsTime: 86400000,
                 weeklyStartTime: 0,
                 weeklyEndTime: 604800000

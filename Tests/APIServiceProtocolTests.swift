@@ -16,13 +16,13 @@ final class MockQuotaAPIService: APIServiceProtocol {
 
 final class APIServiceProtocolTests: XCTestCase {
     func testMockReturnsDecodedModels() async throws {
-        // API usage=60, total=100 → remaining=40
+        // API 返回 remaining=40, total=100
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
             currentIntervalTotalCount: 100,
-            currentIntervalUsageCount: 60,
+            currentIntervalRemainingCount: 40,
             currentWeeklyTotalCount: 1000,
-            currentWeeklyUsageCount: 500,
+            currentWeeklyRemainingCount: 500,
             remainsTime: 3_600_000,
             weeklyStartTime: 0,
             weeklyEndTime: 86_400_000
