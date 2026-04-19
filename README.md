@@ -17,7 +17,7 @@
 
 <center>
 
-![MiniMax Status Bar Preview](docs/preview.svg)
+![MiniMax Status Bar — Menu Bar & Dropdown Panel](Resources/Assets.xcassets/AppScreenshot.imageset/screenshot.png)
 
 </center>
 
