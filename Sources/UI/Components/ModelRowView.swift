@@ -60,7 +60,7 @@ struct ModelRowView: View {
             .frame(height: 5)
 
             HStack {
-                Text("剩余 \(ModelQuota.formatCountForDisplay(model.remainingCount)) / \(ModelQuota.formatCountForDisplay(model.totalCount))")
+                Text("剩余 \(ModelQuota.formatCountForQuotaDetail(model.remainingCount)) / \(ModelQuota.formatCountForQuotaDetail(model.totalCount))")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -71,10 +71,10 @@ struct ModelRowView: View {
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("本周剩余 \(ModelQuota.formatCountForDisplay(model.weeklyRemainingCount)) / 限额 \(ModelQuota.formatCountForDisplay(model.weeklyTotalCount))")
+                    Text("本周剩余 \(ModelQuota.formatCountForQuotaDetail(model.weeklyRemainingCount)) / 限额 \(ModelQuota.formatCountForQuotaDetail(model.weeklyTotalCount))")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Text("本周已用 \(ModelQuota.formatCountForDisplay(model.weeklyConsumedCount))")
+                    Text("本周已用 \(ModelQuota.formatCountForQuotaDetail(model.weeklyConsumedCount))")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }

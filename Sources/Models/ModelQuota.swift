@@ -199,9 +199,9 @@ struct ModelQuota {
         self.fetchedAt = fetchedAt
     }
 
-    /// Compact remaining count for menu bar detailed mode (matches row formatting).
+    /// 菜单栏 verbose 后缀：与面板「剩余/总额」一致，用分组整数避免 K 舍入与百分比矛盾。
     var formattedRemainingCountShort: String {
-        Self.formatCountForDisplay(remainingCount)
+        Self.formatCountForQuotaDetail(remainingCount)
     }
 
     static func formatCountForDisplay(_ num: Int) -> String {
@@ -215,6 +215,19 @@ struct ModelQuota {
             return String(format: "%.1fK", Double(num) / 1_000)
         }
         return "\(num)"
+    }
+
+    /// 配额明细用分组整数，避免 `formatCountForDisplay` 的 1 位 K 舍入把 29,951 与 30,000 都显示成「30.0K」，
+    /// 从而与 `remainingPercent`（按精确 remaining/total 整数除法）不一致。
+    private static let quotaDetailFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        return f
+    }()
+
+    static func formatCountForQuotaDetail(_ num: Int) -> String {
+        quotaDetailFormatter.string(from: NSNumber(value: num)) ?? "\(num)"
     }
 
     /// Remains time that decreases in real-time based on elapsed seconds since fetch

@@ -27,6 +27,23 @@ final class ModelQuotaTests: XCTestCase {
     }
 
     /// API 返回 remaining=3, total=3 → consumed=0, 100% 剩余
+    /// 略低于总额时整数除法为 99%；与 `formatCountForDisplay` 的「30.0K/30.0K」错觉不同，应用 `formatCountForQuotaDetail` 展示精确剩余。
+    func testRemainingPercentWhenSlightlyBelowTotal() {
+        let raw = ModelQuotaRaw(
+            modelName: "minimax-m",
+            currentIntervalTotalCount: 30_000,
+            currentIntervalRemainingCount: 29_951,
+            currentWeeklyTotalCount: 30_000,
+            currentWeeklyRemainingCount: 29_951,
+            remainsTime: 1_000,
+            weeklyStartTime: 0,
+            weeklyEndTime: 86_400_000
+        )
+        let q = ModelQuota.from(raw: raw)
+        XCTAssertEqual(q.remainingPercent, 99)
+        XCTAssertEqual(q.intervalConsumedPercent, 1)
+    }
+
     func testFromRawWhenTotalEqualsRemainingFieldMeansFullQuota() {
         let raw = ModelQuotaRaw(
             modelName: "MiniMax-M2.7",
