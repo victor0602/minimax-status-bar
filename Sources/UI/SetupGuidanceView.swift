@@ -82,7 +82,8 @@ struct SetupGuidanceView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
+                .contentShape(Rectangle())
                 .background(Color.accentColor.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
 
@@ -144,7 +145,8 @@ struct SetupGuidanceView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
         .background(Color.primary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
     }

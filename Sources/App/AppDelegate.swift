@@ -6,8 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var statusBarController: StatusBarController?
     private var settingsWindowController: NSWindowController?
     private var localKeyDownMonitor: Any?
-    /// 设置窗口打开时默认显示的标签页索引
-    private var settingsDefaultTab: Int? = nil
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
@@ -28,19 +26,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     @MainActor
     func openSettingsWindow(tab: Int? = nil) {
-        settingsDefaultTab = tab
         if settingsWindowController == nil {
-            let root = SettingsView()
+            let root = SettingsView(defaultTabIndex: tab)
             let hosting = NSHostingController(rootView: root)
             let window = NSWindow(contentViewController: hosting)
             window.title = "MiniMax Status Bar 设置"
-            window.setContentSize(NSSize(width: 560, height: 440))
+            window.setContentSize(NSSize(width: 680, height: 520))
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             settingsWindowController = NSWindowController(window: window)
+        } else if let hosting = settingsWindowController?.contentViewController as? NSHostingController<SettingsView> {
+            hosting.rootView = SettingsView(defaultTabIndex: tab)
         }
         settingsWindowController?.showWindow(nil)
-        settingsWindowController?.window?.makeKeyAndOrderFront(nil)
+        if let window = settingsWindowController?.window {
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
+            window.orderFrontRegardless()
+            window.makeKeyAndOrderFront(nil)
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

@@ -1,345 +1,145 @@
-<div align="center">
-
 # MiniMax Status Bar
 
-**macOS 菜单栏配额感知工具**
+**A lightweight macOS menu bar companion for MiniMax Token Plan visibility.**  
+**一个轻量的 macOS 菜单栏配额感知工具。**
 
-为每天重度使用 MiniMax M2.7 的开发者而生——瞟一眼就知道还剩多少、什么时候重置。
-
+[English](#english) | [中文](#中文)  
 [![Release](https://img.shields.io/github/v/release/victor0602/minimax-status-bar?style=flat-square&color=blue)](https://github.com/victor0602/minimax-status-bar/releases/latest)
 [![macOS](https://img.shields.io/badge/macOS-13.0%2B-black?style=flat-square&logo=apple)](https://github.com/victor0602/minimax-status-bar/releases/latest)
 [![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat-square&logo=swift)](https://swift.org)
 [![License](https://img.shields.io/github/license/victor0602/minimax-status-bar?style=flat-square)](LICENSE)
 
-</div>
-
 ---
 
-<center>
+## English
 
-![MiniMax Status Bar — Menu Bar & Dropdown Panel](Resources/Assets.xcassets/AppScreenshot.imageset/screenshot.png)
+### What It Is
 
-</center>
+`MiniMax Status Bar` is a menu bar first utility for developers who rely on MiniMax Token Plan daily.
+It keeps quota status visible at a glance, without opening browser tabs or dashboards.
 
----
+### Why It Stands Out
 
-## 产品定位
+- **Glanceable**: menu bar percent + compact popover details.
+- **Reliable semantics**: remaining/consumed display matches Token Plan expectations.
+- **Resilient behavior**: cache fallback + retry strategy when API is unstable.
+- **High interaction precision**: consistent hit targets and one-click interactions.
+- **Low distraction**: LSUIElement app, no Dock icon, transient popover.
 
-这是一个感知工具，不是操作工具。
+### Feature Highlights
 
-核心用户是把 MiniMax M2.7 作为日常主力模型的开发者——通过 OpenClaw、Claude Code、Cursor 等工具每天消耗大量 Token Plan 配额。他们的痛点不是"不知道有用量限制"，而是"不知道现在还剩多少、什么时候重置"，在高强度工作流里额度悄悄耗尽是真实发生的事。
+- Auto API key resolution (`MINIMAX_API_KEY`, `.env`, OpenClaw config)
+- Quota grouping by modality (Text / Speech / Video / Music / Image)
+- Low-quota notification with recovery threshold reset
+- Usage history analytics (7 / 14 / 30 days)
+- In-app update check flow
+- Setup guidance for invalid/missing key states
 
-<center>
+### Install
 
-![Features Preview](docs/preview-features.svg)
-
-</center>
-
----
-
-## 核心特性
-
-| 功能 | 说明 |
-| --- | --- |
-| **零配置** | 自动读取 `MINIMAX_API_KEY` 环境变量和 OpenClaw 配置，安装后无需任何设置 |
-| **零打扰** | 纯菜单栏 App（LSUIElement），没有 Dock 图标，没有窗口，只在需要时存在 |
-| **数据可信** | 与 MiniMax 控制台语义完全一致，「剩余」即剩余，非已用 |
-| **容错稳定** | API 失败时展示上次缓存数据，指数退避重试（2s → 4s → 8s），睡眠唤醒后立即刷新 |
-| **菜单栏一眼感知** | 颜色点（🟢 余量 &gt;30% / 🟡 &gt;10% / 🔴 ≤10%）+ 主力缩写 + 剩余百分比 |
-| **多模态分组** | Text / Speech / Video / Music / Image 分组展示，适合多产品线开发者 |
-| **离线缓存** | API 不可达时保留上次有效数据，标注数据时效，不显示空白页 |
-| **低配额通知** | 主力模型余量 &lt;10% 时推送一次，回到 ≥20% 后允许再次提醒 |
-| **自动更新** | 检测 GitHub Releases，一键下载安装并重启，无需手动操作 |
-| **新模型兜底** | 未适配的新模型标注「未适配」标签，不静默丢失数据 |
-| **首次引导** | 无 Key 或 Key 格式错误时显示引导页，并提供实时密钥格式校验反馈 |
----
-
-## 安装
-
-### 下载 Release（推荐）
-
-1. 前往 [Releases](https://github.com/victor0602/minimax-status-bar/releases/latest) 下载最新 `.dmg`
-2. 打开 DMG，将 **MiniMax Status Bar** 拖入**应用程序**文件夹
-3. 首次启动若提示无法打开：**系统设置 → 隐私与安全性 → 仍要打开**
-
-> 若提示"文件已损坏"，在终端执行：
-> ```bash
-> xattr -cr "/Applications/MiniMax Status Bar.app"
-> ```
-> 该提示由 macOS Gatekeeper 的 ad-hoc 签名策略触发，不影响实际安全性。
-
----
-
-## 配置 API Key
-
-App 按以下优先级自动读取 Token Plan API Key，**无需手动配置**：
-
-1. 环境变量 `MINIMAX_API_KEY`
-2. `~/.openclaw/.env` 中的 `MINIMAX_API_KEY=…`
-3. `~/.openclaw/openclaw.json` 中的 `models.providers.minimax.apiKey` 或 `env.MINIMAX_API_KEY`
+1. Download latest `.dmg` from [Releases](https://github.com/victor0602/minimax-status-bar/releases/latest)
+2. Drag **MiniMax Status Bar.app** into `Applications`
+3. If Gatekeeper blocks first launch:
 
 ```bash
-# 方式一：环境变量（写入 ~/.zshrc 或 ~/.zshenv）
-export MINIMAX_API_KEY="sk-cp-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# 方式二：OpenClaw .env 文件
-mkdir -p ~/.openclaw
-echo 'MINIMAX_API_KEY=sk-cp-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' > ~/.openclaw/.env
+xattr -cr "/Applications/MiniMax Status Bar.app"
 ```
 
-> **注意**：需要 Token Plan 专用密钥（通常以 `sk-cp-` 开头），与普通 Open Platform Key（`sk-` 开头）不同。可在 [MiniMax 控制台 → Token Plan](https://platform.minimaxi.com/user-center/payment/token-plan) 获取。
-
-配置完成后，点击下拉菜单中的**「重新检测密钥」**即可生效，无需重启 App。
-
----
-
-## 架构
-
-```mermaid
-graph TB
-    subgraph App["App Layer"]
-        main["main.swift\n单实例检查"]
-        AppDelegate["AppDelegate\n生命周期"]
-    end
-
-    subgraph State["State Layer (单一数据源)"]
-        QuotaState["QuotaState\nObservableObject\n· models\n· cachedModels\n· lastError\n· isLoading"]
-        UpdateState["UpdateState\n更新状态"]
-    end
-
-    subgraph Services["Service Layer"]
-        APIKeyService["APIKeyService\n三级密钥解析与校验\nenv → .env → .json"]
-        MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\n30s 超时"]
-        UpdateService["UpdateService\nGitHub Releases\n6h 检查"]
-        NotificationService["NotificationService\n低配额单次提醒"]
-        LaunchAtLogin["LaunchAtLoginService\nSMAppService"]
-    end
-
-    subgraph UI["UI Layer"]
-        StatusBarController["StatusBarController\n· 3个 Timer 集中管理\n· 睡眠唤醒刷新\n· 指数退避重试"]
-        MenuContentView["MenuContentView\nNSPopover 容器"]
-        DetailView["DetailView\n· 多模态分组\n· 离线缓存横幅\n· 未适配标签"]
-        SetupGuidanceView["SetupGuidanceView\n首次配置引导"]
-    end
-
-    main --> AppDelegate
-    AppDelegate --> StatusBarController
-    StatusBarController --> APIKeyService
-    StatusBarController --> MiniMaxAPI
-    StatusBarController --> QuotaState
-    StatusBarController --> UpdateState
-    StatusBarController --> NotificationService
-    MiniMaxAPI -->|"models[]"| QuotaState
-    QuotaState -->|"@Published"| DetailView
-    UpdateState -->|"@Published"| DetailView
-    StatusBarController --> MenuContentView
-    MenuContentView --> DetailView
-    DetailView --> SetupGuidanceView
-    UpdateService --> UpdateState
-
-    style App fill:#f0f0f0,stroke:#999
-    style State fill:#e8f4fd,stroke:#4a9eff
-    style Services fill:#fff3e0,stroke:#ff9800
-    style UI fill:#f3e5f5,stroke:#9c27b0
-```
-
-**数据流简述**
-
-`StatusBarController` 是核心编排者，持有所有 Timer 和 Observer。每 60 秒（低配额时 10 秒）调用 `MiniMaxAPIService.fetchQuota()`，结果写入 `QuotaState`（同时更新离线缓存）。`DetailView` 通过 `@ObservedObject` 绑定 `QuotaState` 自动刷新 UI。API 失败时触发指数退避重试，三次失败后展示缓存数据。
-
----
-
-## 从源码构建
-
-依赖 [XcodeGen](https://github.com/yonaskolb/XcodeGen)：
+### Build From Source
 
 ```bash
-# 克隆仓库
 git clone https://github.com/victor0602/minimax-status-bar.git
 cd minimax-status-bar
-
-# 生成 Xcode 工程
 brew install xcodegen
 xcodegen generate
 
-# 构建（Debug）
 xcodebuild \
   -project minimax-status-bar.xcodeproj \
   -scheme minimax-status-bar \
   -configuration Debug \
+  -destination 'platform=macOS' \
   build
+```
 
-# 运行单元测试
+### Test
+
+```bash
 xcodebuild \
   -project minimax-status-bar.xcodeproj \
   -scheme minimax-status-bar \
   -configuration Debug \
-  test \
-  CODE_SIGNING_ALLOWED=NO \
-  -destination 'platform=macOS'
+  -destination 'platform=macOS' \
+  test
 ```
 
-**目录结构：**
+### License
 
+Licensed under the [MIT License](LICENSE).
+
+---
+
+## 中文
+
+### 项目定位
+
+`MiniMax Status Bar` 是一个面向高频 MiniMax 用户的菜单栏工具。  
+目标是让你在开发过程中“瞟一眼就知道配额状态”，而不是频繁打开控制台页面。
+
+### 核心亮点
+
+- **信息高密但不干扰**：菜单栏显示关键百分比，下拉面板展示细节。
+- **语义可信**：剩余/已用显示与 Token Plan 语义保持一致。
+- **稳定容错**：接口波动时可回退缓存并重试，避免空白状态。
+- **交互精准**：统一点击热区与按钮行为，降低误触和多次点击。
+- **轻量存在感**：纯菜单栏形态，无 Dock 图标，按需弹出。
+
+### 主要功能
+
+- 自动解析 API Key（环境变量 / `.env` / OpenClaw 配置）
+- 按模型类型分组展示配额（文本、语音、视频、音乐、图像）
+- 低配额提醒与恢复阈值机制
+- 用量历史统计（7 / 14 / 30 天）
+- 应用内更新检测
+- 首次配置与异常状态引导
+
+### 安装方式
+
+1. 从 [Releases](https://github.com/victor0602/minimax-status-bar/releases/latest) 下载最新 `.dmg`
+2. 将 **MiniMax Status Bar.app** 拖入“应用程序”目录
+3. 若首次启动被系统拦截，可执行：
+
+```bash
+xattr -cr "/Applications/MiniMax Status Bar.app"
 ```
-Sources/
-├── App/            # 应用入口（main.swift、AppDelegate、Info.plist）
-├── Config/         # 全局配置（GitHub repo 信息）
-├── Models/         # 数据模型（ModelQuota、QuotaState、UpdateState 等）
-├── Services/       # 业务服务（API、密钥解析、更新、通知、开机启动）
-└── UI/             # 用户界面（StatusBarController、DetailView 等）
-Tests/              # 单元测试（60+ 用例）
-Resources/          # 图标资源
-scripts/            # 构建脚本（DMG 打包）
-.github/workflows/  # CI/CD（tag 触发自动发布）
+
+### 本地构建
+
+```bash
+git clone https://github.com/victor0602/minimax-status-bar.git
+cd minimax-status-bar
+brew install xcodegen
+xcodegen generate
+
+xcodebuild \
+  -project minimax-status-bar.xcodeproj \
+  -scheme minimax-status-bar \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  build
 ```
 
----
+### 测试
 
-## Changelog
+```bash
+xcodebuild \
+  -project minimax-status-bar.xcodeproj \
+  -scheme minimax-status-bar \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  test
+```
 
-### v3.0.0
+### 许可证
 
-**图标与品牌**
+本项目采用 [MIT License](LICENSE)。
 
-- 使用 MiniMax 官方渐变红色 Logo（#E73562）替换全部应用图标
-- AppIcon 覆盖 16/32/64/128/256/512/1024pt 全尺寸
-- 菜单栏图标使用官方 Logo 模板图（@1x/@2x/@3x）
-- **彻底移除图标白色背景**，菜单栏和 Finder 均显示透明背景 Logo
-
-**API 字段语义修正**
-
-- 确认 `current_interval_usage_count` = 剩余次数（与控制台一致）
-- 修正 `from(raw:)` 计算逻辑：`remaining = raw.字段值`
-- 统一菜单栏与下拉面板的百分比显示逻辑
-
-### v2.0.3
-
-**百分比显示优化**
-
-- 修复小数值百分比显示问题：当已用量不到 1% 时，正确显示剩余百分比而非错误的 100%
-- 优化 `remainingPercent` 和 `remainingPercentForDisplay` 计算逻辑
-- 进度条添加最小显示宽度（2%），避免完全看不见
-
-**歌词创作模型显示**
-
-- 歌词创作模型（lyrics_generation）现在显示原模型名称，不再被误匹配为 Music 缩写
-
-**API 可配置性增强**
-
-- 新增 API 超时时间配置选项（10/15/30/60/120 秒）
-- 新增请求 ID 诊断开关，便于排查网络问题
-- 请求 ID 格式升级为 `{时间戳}-{UUID}` 便于追踪
-
-**缓存一致性增强**
-
-- 新增 `checksum()` 校验和方法
-- 新增 `validateChecksum()` 校验验证
-- 新增 `modelsAreSubstantiallySame()` 实质性一致判断（允许 5% 微小波动）
-
-**性能优化**
-
-- DateFormatter 实例复用，避免重复创建减少内存开销
-
-**测试覆盖**
-
-- 单元测试扩展到 70+ 用例
-- 新增校验和、实质性一致等边界条件测试
-
-### v2.0.2
-
-**文档与工程对齐**
-
-- 同步优化设计文档进度（已完成项/未完成项与仓库实现一致）
-- 发布计划细化为 `v2.1.2` / `v2.2.0` / `v2.2.x`，便于按批次推进
-
-**稳定性与可维护性**
-
-- 引入 `AppError` 统一错误表示，替代 UI 层字符串错误拼接
-- 增强 `CacheConsistencyChecker`：支持与缓存版本做语义对拍
-- 用量历史增加 30 天保留策略，并在每天 3:00 后触发清理
-
-**密钥与引导体验**
-
-- 统一 `APIKeyService` 入口（兼容保留 `APIKeyResolver` 实现）
-- `SetupGuidanceView` 增加实时 Key 格式校验（检测值 + 粘贴值，不落盘）
-- 移除多账户相关能力与文档描述，回归 Token Plan 单账户前提
-
-**测试覆盖**
-
-- 新增 `MiniMaxAPIServiceTests`（URLProtocol Mock：网络/HTTP/解码/业务错误）
-- 新增 `NetworkMonitorTests`（网络恢复状态机）
-- 全项目单测规模扩展到 60+ 用例
-
-### v2.0.1
-
-**代码可维护性**
-
-- 完善代码注释：Timer 职责说明、三段通知区间业务含义、主力模型选取优先级
-- 所有优化任务（指数退避、离线缓存、Timer 集中管理、密钥校验、单元测试、代码注释）全部完成
-
-### v2.0.0
-
-**稳定性**
-
-- 指数退避重试策略：API 失败后 2s → 4s → 8s，替代原固定 5s 重试
-- 睡眠唤醒立即刷新：监听 `NSWorkspace.didWakeNotification`，Mac 开盖即获取最新数据
-- Timer 集中管理：三个 Timer 统一注册/取消，`deinit` 一次性清理，消除潜在内存泄漏
-
-**容错与数据可信度**
-
-- 离线缓存：API 不可达时展示上次有效数据，标注"数据来自 X 分钟前"，不再显示空白页
-- 菜单栏离线标识：缓存状态下百分比后附加 `~`，Tooltip 标注"（缓存，可能过期）"
-- 新模型兜底：未识别分类的新模型标注「未适配」标签，数据仍正常显示
-
-**密钥管理**
-
-- 精确校验：区分空值 / 普通 API Key / 格式错误 / 有效 Token Plan Key 四种情况
-- 普通 `sk-` Key 会明确提示"请换用 Token Plan 专用密钥"，不再静默报 401
-
-**测试**
-
-- 新增 `NotificationServiceTests`（5 个用例）：覆盖三段配额区间的通知状态转换
-- 新增 `UpdateServiceTests`（5 个用例）：版本号比较全路径
-- `APIKeyResolverTests` 新增 8 个密钥格式校验用例（含边界长度）
-- 全项目共 25 个单元测试用例
-
-### v1.1.1
-
-- 菜单栏主力缩写（`2.7·`）+ Tooltip 含重置倒计时，30s 本地刷新
-- `SetupGuidanceView` 首次配置引导
-- `APIKeyResolver` 三级解析抽离为独立模块
-- 数据字段语义厘清（剩余 / 已用 / 周维度）
-- `UpdateFileDownloader` + `ReleaseDMGInstaller` 自动更新链路
-- 25 个单元测试
-
-### v1.1.0 及更早
-
-见 [Releases](https://github.com/victor0602/minimax-status-bar/releases) 页面。
-
----
-
-## 技术栈
-
-| 技术 | 说明 |
-| --- | --- |
-| **语言** | Swift 5.9 |
-| **UI** | SwiftUI + AppKit（`NSPopover`、`NSStatusItem`） |
-| **并发** | async/await + `ObservableObject` |
-| **构建** | XcodeGen |
-| **CI/CD** | GitHub Actions（tag 触发，自动打 DMG 并发布 Release） |
-| **最低系统** | macOS 13.0 |
-
----
-
-## 相关链接
-
-- [MiniMax Token Plan 控制台](https://platform.minimaxi.com/user-center/payment/token-plan)
-- [MiniMax 开放平台](https://platform.minimaxi.com)
-- [OpenClaw](https://github.com/OpenClaw-AI/openclaw)
-
----
-
-## License
-
-[MIT](LICENSE)

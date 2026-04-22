@@ -5,7 +5,7 @@ enum UISpec {
     static let cardCornerRadius: CGFloat = 12
     static let buttonCornerRadius: CGFloat = 8
 
-    static let contentHorizontalPadding: CGFloat = 14
+    static let contentHorizontalPadding: CGFloat = 12
     static let contentVerticalPadding: CGFloat = 8
     static let compactVerticalPadding: CGFloat = 6
 }

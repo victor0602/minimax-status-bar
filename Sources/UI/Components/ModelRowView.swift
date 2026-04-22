@@ -12,8 +12,7 @@ struct ModelRowView: View {
             HStack {
                 HStack(spacing: 4) {
                     Text(model.displayName)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.system(size: 13, weight: .semibold))
                     if showUnrecognizedTag {
                         Text("未适配")
                             .font(.system(size: 9, weight: .medium))
@@ -29,7 +28,7 @@ struct ModelRowView: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("剩余 \(model.remainingPercentForDisplay)%")
-                        .font(.caption)
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(progressColor(for: model.remainingPercentForDisplay))
                     Text("已用 \(model.intervalConsumedPercent)%")
                         .font(.caption2)
@@ -62,6 +61,7 @@ struct ModelRowView: View {
             HStack {
                 Text("剩余 \(ModelQuota.formatCountForQuotaDetail(model.remainingCount)) / \(ModelQuota.formatCountForQuotaDetail(model.totalCount))")
                     .font(.caption)
+                    .monospacedDigit()
                     .foregroundColor(.secondary)
                 Spacer()
                 Text("重置: \(model.remainsTimeFormatted)")
