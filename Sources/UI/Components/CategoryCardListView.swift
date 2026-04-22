@@ -16,8 +16,8 @@ struct CategoryCardListView: View {
                         .tracking(0.5)
                 }
                 .padding(.horizontal, UISpec.contentHorizontalPadding)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
+                .padding(.top, UISpec.contentVerticalPadding)
+                .padding(.bottom, UISpec.compactVerticalPadding)
 
                 if category == .unknown {
                     Text("以下模型暂未识别分类，数据仍然有效")
@@ -30,7 +30,7 @@ struct CategoryCardListView: View {
                 ForEach(models, id: \.modelName) { model in
                     ModelRowView(model: model, showUnrecognizedTag: category == .unknown)
                     if model.modelName != models.last?.modelName {
-                        Divider().padding(.leading, 14)
+                        Divider().padding(.leading, UISpec.contentHorizontalPadding)
                     }
                 }
             }

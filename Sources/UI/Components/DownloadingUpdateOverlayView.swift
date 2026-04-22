@@ -23,7 +23,8 @@ struct DownloadingUpdateOverlayView: View {
                                 updateState.cancelDownload()
                             }
                             .font(.system(size: 11))
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderless)
+                            .contentShape(Rectangle())
                             .ifPlatformButton()
                         } else if updateState.installPhase == "安装中" {
                             Text("正在安装更新...")

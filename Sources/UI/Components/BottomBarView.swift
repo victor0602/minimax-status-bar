@@ -3,26 +3,29 @@ import SwiftUI
 
 struct BottomBarView: View {
     @ObservedObject var updateState: UpdateState
-    let isHistoryVisible: Bool
-    let onToggleHistory: () -> Void
     let onExit: () -> Void
 
     var body: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 8) {
-                exitButton
-                Spacer()
-                if let release = updateState.latestRelease {
-                    updateButton(release)
-                }
-                launchAtLoginButton
-                historyButton
-                consoleButton
+        HStack(spacing: 8) {
+            exitButton
+            versionLabel
+            Spacer()
+            if let release = updateState.latestRelease {
+                updateButton(release)
             }
-            versionBar
+            launchAtLoginButton
+            consoleButton
         }
         .padding(.horizontal, UISpec.contentHorizontalPadding)
         .padding(.vertical, UISpec.contentVerticalPadding)
+    }
+
+    private var versionLabel: some View {
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return Text("v\(currentVersion)")
+            .font(.system(size: 9))
+            .monospacedDigit()
+            .foregroundColor(Color(nsColor: .quaternaryLabelColor))
     }
 
     private func updateButton(_ release: ReleaseInfo) -> some View {
@@ -35,12 +38,14 @@ struct BottomBarView: View {
                 Text("更新 v\(release.version)")
                     .font(.system(size: 11))
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
         .ifPlatformButton()
         .foregroundColor(.blue)
+        .help("下载并安装 v\(release.version)")
     }
 
     private var launchAtLoginButton: some View {
@@ -50,8 +55,10 @@ struct BottomBarView: View {
             Image(systemName: LaunchAtLoginService.isEnabled ? "power.circle.fill" : "power.circle")
                 .font(.system(size: 14))
                 .foregroundColor(LaunchAtLoginService.isEnabled ? .green : .secondary)
+                .frame(width: 24, height: 22)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
         .ifPlatformButton()
         .help(LaunchAtLoginService.isEnabled ? "已开启开机启动" : "开启开机启动")
     }
@@ -64,12 +71,14 @@ struct BottomBarView: View {
                 Text("退出")
                     .font(.system(size: 11))
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
         .ifPlatformButton()
         .keyboardShortcut("q", modifiers: .command)
+        .help("退出（⌘Q）")
     }
 
     private var consoleButton: some View {
@@ -84,44 +93,13 @@ struct BottomBarView: View {
                 Image(systemName: "arrow.up.right.square")
                     .font(.system(size: 9))
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, UISpec.compactVerticalPadding - 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderless)
+        .contentShape(Rectangle())
         .ifPlatformButton()
+        .help("打开 MiniMax Token Plan 控制台")
     }
 
-    /// 在主界面展开/收起用量历史卡片
-    private var historyButton: some View {
-        Button(action: { onToggleHistory() }) {
-            HStack(spacing: 3) {
-                Image(systemName: "chart.bar")
-                    .font(.system(size: 10))
-                Text(isHistoryVisible ? "收起历史" : "用量历史")
-                    .font(.system(size: 11))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, UISpec.compactVerticalPadding - 1)
-        }
-        .buttonStyle(.plain)
-        .ifPlatformButton()
-        .help(isHistoryVisible ? "收起主界面的用量历史" : "在主界面展开用量历史")
-    }
-
-    private var versionBar: some View {
-        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
-        return HStack(spacing: 6) {
-            Text("v\(currentVersion)")
-                .font(.system(size: 9))
-                .foregroundColor(Color(nsColor: .quaternaryLabelColor))
-
-            if let release = updateState.latestRelease {
-                Text("→ v\(release.version) 可用")
-                    .font(.system(size: 9))
-                    .foregroundColor(.blue.opacity(0.7))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, 4)
-    }
 }

@@ -19,6 +19,7 @@ struct OfflineBannerView: View {
                 .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, UISpec.contentHorizontalPadding)
+                .padding(.top, 2)
                 .padding(.bottom, UISpec.compactVerticalPadding)
             }
         }

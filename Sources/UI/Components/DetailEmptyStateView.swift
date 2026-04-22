@@ -28,7 +28,8 @@ struct DetailEmptyStateView: View {
                             .padding(.horizontal, 16)
                             .padding(.vertical, 6)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
+                    .contentShape(Rectangle())
                     .ifPlatformButton()
                 }
                 .padding(24)

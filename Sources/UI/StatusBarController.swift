@@ -116,7 +116,7 @@ final class StatusBarController {
 
     private func setupPopover() {
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 320, height: 450)
+        popover?.contentSize = NSSize(width: 420, height: 560)
         popover?.behavior = .transient
         popover?.animates = true
         popover?.setValue(true, forKeyPath: "shouldHideAnchor")
@@ -124,11 +124,7 @@ final class StatusBarController {
         let contentView = MenuContentView(
             quotaState: quotaState,
             onRefresh: { [weak self] in self?.manualRefresh() },
-            onOpenSettings: {
-                Task { @MainActor in
-                    (NSApp.delegate as? AppDelegate)?.openSettingsWindow()
-                }
-            }
+            onOpenSettings: { [weak self] in self?.openSettingsWindowFromPopover() }
         )
         let hostingController = NSHostingController(rootView: contentView)
         hostingController.view.layer?.backgroundColor = CGColor(gray: 0, alpha: 0)
@@ -164,6 +160,13 @@ final class StatusBarController {
         if let monitor = eventMonitor {
             NSEvent.removeMonitor(monitor)
             eventMonitor = nil
+        }
+    }
+
+    private func openSettingsWindowFromPopover() {
+        closePopover()
+        Task { @MainActor in
+            (NSApp.delegate as? AppDelegate)?.openSettingsWindow()
         }
     }
 
