@@ -9,6 +9,7 @@ struct SetupGuidanceView: View {
 
     @State private var detectedKey: String = ""
     @State private var pastedKey: String = ""
+    @State private var saveFeedback: String = ""
 
     private var title: String {
         switch reason {
@@ -60,12 +61,17 @@ struct SetupGuidanceView: View {
                 keyStatusSection(title: "当前检测到的 Key", key: detectedKey)
                 Divider().opacity(0.5)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("粘贴 Key 以实时校验格式（不保存）")
+                    Text("粘贴 Key 以实时校验格式，可一键保存到本机 Keychain")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                     SecureField("Token Plan API Key（sk-cp-…）", text: $pastedKey)
                         .textFieldStyle(.roundedBorder)
                     keyValidationLine(for: pastedKey)
+                    if !saveFeedback.isEmpty {
+                        Text(saveFeedback)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .padding(UISpec.cardCornerRadius)
@@ -88,6 +94,11 @@ struct SetupGuidanceView: View {
                 .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
 
                 HStack(spacing: 8) {
+                    secondaryButton("保存并使用") {
+                        savePastedKeyAndRetry()
+                    }
+                    .disabled(APIKeyService.validateForQuotaAPI(pastedKey.trimmingCharacters(in: .whitespacesAndNewlines)) != .valid)
+
                     secondaryButton("打开控制台") {
                         if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
                             NSWorkspace.shared.open(url)
@@ -153,6 +164,21 @@ struct SetupGuidanceView: View {
 
     private func refreshDetectedKey() {
         detectedKey = APIKeyService.resolve()
+    }
+
+    private func savePastedKeyAndRetry() {
+        let trimmed = pastedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard APIKeyService.validateForQuotaAPI(trimmed) == .valid else {
+            saveFeedback = "保存失败：请输入有效的 Token Plan Key（sk-cp-）"
+            return
+        }
+        if APIKeyService.saveToKeychain(trimmed) {
+            saveFeedback = "已保存到本机 Keychain，正在重新检测..."
+            refreshDetectedKey()
+            onRetry()
+        } else {
+            saveFeedback = "保存失败：写入 Keychain 出错，请检查系统权限"
+        }
     }
 
     private func maskedKeySummary(_ key: String) -> String {

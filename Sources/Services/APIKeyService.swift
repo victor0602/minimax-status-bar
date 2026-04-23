@@ -11,5 +11,10 @@ enum APIKeyService {
     static func validateForQuotaAPI(_ key: String) -> APIKeyValidationResult {
         APIKeyResolver.validateForQuotaAPI(key)
     }
+
+    @discardableResult
+    static func saveToKeychain(_ key: String) -> Bool {
+        APIKeyKeychainStore.save(key)
+    }
 }
 
