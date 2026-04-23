@@ -17,12 +17,6 @@
 
 </div>
 
-<div align="center">
-
-![Dark Mode Collage](docs/screenshots-dark-collage.png)
-
-</div>
-
 ---
 
 ## English
