@@ -13,13 +13,13 @@
 
 <div align="center">
 
-![MiniMax Status Bar — Menu Bar & Dropdown Panel](Resources/Assets.xcassets/AppScreenshot.imageset/screenshot.png)
+![MiniMax Status Bar — Menu Bar Panel](docs/screenshot-main-rounded.png)
 
 </div>
 
 <div align="center">
 
-![Features Preview](docs/preview-features.svg)
+![Feature Detail Preview](docs/screenshot-feature-rounded.png)
 
 </div>
 
