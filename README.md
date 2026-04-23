@@ -11,6 +11,20 @@
 
 ---
 
+<div align="center">
+
+![MiniMax Status Bar — Menu Bar & Dropdown Panel](Resources/Assets.xcassets/AppScreenshot.imageset/screenshot.png)
+
+</div>
+
+<div align="center">
+
+![Features Preview](docs/preview-features.svg)
+
+</div>
+
+---
+
 ## English
 
 ### What It Is
@@ -34,6 +48,56 @@ It keeps quota status visible at a glance, without opening browser tabs or dashb
 - Usage history analytics (7 / 14 / 30 days)
 - In-app update check flow
 - Setup guidance for invalid/missing key states
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph App["App Layer"]
+        main["main.swift\nSingle instance guard"]
+        AppDelegate["AppDelegate\nLifecycle & window entry"]
+    end
+
+    subgraph State["State Layer (single source of truth)"]
+        QuotaState["QuotaState\nObservableObject\n· models\n· cachedModels\n· lastError\n· isLoading"]
+        UpdateState["UpdateState\nRelease download/install state"]
+    end
+
+    subgraph Services["Service Layer"]
+        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json"]
+        MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\nrequest timeout + error mapping"]
+        UpdateService["UpdateService\nGitHub Releases polling"]
+        NotificationService["NotificationService\nlow-quota one-shot notify/reset"]
+        LaunchAtLogin["LaunchAtLoginService\nSMAppService wrapper"]
+    end
+
+    subgraph UI["UI Layer"]
+        StatusBarController["StatusBarController\n· polling timers\n· retry/backoff\n· popover lifecycle"]
+        MenuContentView["MenuContentView\nNSPopover host"]
+        DetailView["DetailView\n· model grouping\n· setup guidance\n· settings in-popover route"]
+        SetupGuidanceView["SetupGuidanceView\nfirst-run key guidance"]
+    end
+
+    main --> AppDelegate
+    AppDelegate --> StatusBarController
+    StatusBarController --> APIKeyService
+    StatusBarController --> MiniMaxAPI
+    StatusBarController --> UpdateService
+    StatusBarController --> QuotaState
+    StatusBarController --> UpdateState
+    StatusBarController --> NotificationService
+    StatusBarController --> LaunchAtLogin
+    MiniMaxAPI -->|"models[]"| QuotaState
+    QuotaState -->|"@Published"| DetailView
+    UpdateState -->|"@Published"| DetailView
+    MenuContentView --> DetailView
+    DetailView --> SetupGuidanceView
+
+    style App fill:#f0f0f0,stroke:#999
+    style State fill:#e8f4fd,stroke:#4a9eff
+    style Services fill:#fff3e0,stroke:#ff9800
+    style UI fill:#f3e5f5,stroke:#9c27b0
+```
 
 ### Install
 
@@ -101,6 +165,56 @@ Licensed under the [MIT License](LICENSE).
 - 用量历史统计（7 / 14 / 30 天）
 - 应用内更新检测
 - 首次配置与异常状态引导
+
+### 架构图
+
+```mermaid
+graph TB
+    subgraph App["应用层"]
+        main["main.swift\n单实例守卫"]
+        AppDelegate["AppDelegate\n生命周期与窗口入口"]
+    end
+
+    subgraph State["状态层（单一数据源）"]
+        QuotaState["QuotaState\nObservableObject\n· models\n· cachedModels\n· lastError\n· isLoading"]
+        UpdateState["UpdateState\n更新下载/安装状态"]
+    end
+
+    subgraph Services["服务层"]
+        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json"]
+        MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\n请求超时与错误映射"]
+        UpdateService["UpdateService\nGitHub Releases 轮询"]
+        NotificationService["NotificationService\n低配额单次提醒与恢复重置"]
+        LaunchAtLogin["LaunchAtLoginService\nSMAppService 封装"]
+    end
+
+    subgraph UI["界面层"]
+        StatusBarController["StatusBarController\n· 轮询计时器\n· 重试/退避\n· 弹层生命周期"]
+        MenuContentView["MenuContentView\nNSPopover 容器"]
+        DetailView["DetailView\n· 模型分组\n· 首次引导\n· 内嵌设置路由"]
+        SetupGuidanceView["SetupGuidanceView\n首次密钥引导"]
+    end
+
+    main --> AppDelegate
+    AppDelegate --> StatusBarController
+    StatusBarController --> APIKeyService
+    StatusBarController --> MiniMaxAPI
+    StatusBarController --> UpdateService
+    StatusBarController --> QuotaState
+    StatusBarController --> UpdateState
+    StatusBarController --> NotificationService
+    StatusBarController --> LaunchAtLogin
+    MiniMaxAPI -->|"models[]"| QuotaState
+    QuotaState -->|"@Published"| DetailView
+    UpdateState -->|"@Published"| DetailView
+    MenuContentView --> DetailView
+    DetailView --> SetupGuidanceView
+
+    style App fill:#f0f0f0,stroke:#999
+    style State fill:#e8f4fd,stroke:#4a9eff
+    style Services fill:#fff3e0,stroke:#ff9800
+    style UI fill:#f3e5f5,stroke:#9c27b0
+```
 
 ### 安装方式
 
