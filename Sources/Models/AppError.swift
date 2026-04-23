@@ -24,8 +24,9 @@ enum AppError: Error, LocalizedError {
 
                 自动查找路径：
                 1. 环境变量 MINIMAX_API_KEY
-                2. ~/.openclaw/.env
-                3. ~/.openclaw/openclaw.json
+                2. 本机 Keychain（应用内“保存并使用”）
+                3. ~/.openclaw/.env
+                4. ~/.openclaw/openclaw.json
 
                 OpenClaw 用户重启 app 即可自动读取
                 其他用户请在终端执行：

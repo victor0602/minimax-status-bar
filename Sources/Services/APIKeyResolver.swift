@@ -8,7 +8,7 @@ enum APIKeyValidationResult {
     case nonTokenPlanKey        // Looks like a regular API key (sk-), not a Token Plan key (sk-cp-)
 }
 
-/// Resolves MiniMax API key from environment, OpenClaw `.env`, or `openclaw.json` (same priority as UI copy).
+/// Resolves MiniMax API key from environment, Keychain, OpenClaw `.env`, or `openclaw.json`.
 enum APIKeyResolver {
     /// Minimum length for a valid API key (prefix + content)
     private static let minimumKeyLength = 40
@@ -18,6 +18,10 @@ enum APIKeyResolver {
         fileManager: FileManager = .default
     ) -> String {
         if let key = environment["MINIMAX_API_KEY"], !key.isEmpty {
+            return key
+        }
+
+        if let key = APIKeyKeychainStore.load(), !key.isEmpty {
             return key
         }
 
