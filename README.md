@@ -13,13 +13,13 @@
 
 <div align="center">
 
-![MiniMax Status Bar — Menu Bar Panel](docs/screenshot-main-rounded.png)
+![Light Mode Collage](docs/screenshots-light-collage.png)
 
 </div>
 
 <div align="center">
 
-![Feature Detail Preview](docs/screenshot-feature-rounded.png)
+![Dark Mode Collage](docs/screenshots-dark-collage.png)
 
 </div>
 
