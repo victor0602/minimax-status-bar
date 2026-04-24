@@ -17,8 +17,6 @@
 
 ![Light Mode Stacked v1.1](docs/screenshots-light-stacked-v1.1.png)
 
-![Dark Mode Horizontal v1.1](docs/screenshots-dark-horizontal-v1.1.png)
-
 </div>
 
 ---
