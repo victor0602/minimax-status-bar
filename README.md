@@ -15,6 +15,8 @@
 
 ![Light Mode Collage](docs/screenshots-light-collage.png)
 
+![Light Mode Stacked v1.1](docs/screenshots-light-stacked-v1.1.png)
+
 </div>
 
 ---
