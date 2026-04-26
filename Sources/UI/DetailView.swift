@@ -106,10 +106,11 @@ struct DetailView: View {
                         LazyVStack(alignment: .leading, spacing: UISpec.contentVerticalPadding + 2) {
                             if let reason = quotaState.setupReason {
                                 SetupGuidanceView(reason: reason, onRetry: onRefresh)
+                            } else {
+                                DetailEmptyStateView(quotaState: quotaState, onRefresh: onRefresh)
+                                skeletonView
+                                CategoryCardListView(grouped: grouped)
                             }
-                            DetailEmptyStateView(quotaState: quotaState, onRefresh: onRefresh)
-                            skeletonView
-                            CategoryCardListView(grouped: grouped)
                         }
                         .padding(.vertical, UISpec.contentVerticalPadding)
                     }

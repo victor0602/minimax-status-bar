@@ -10,6 +10,7 @@ struct SetupGuidanceView: View {
     @State private var detectedKey: String = ""
     @State private var pastedKey: String = ""
     @State private var saveFeedback: String = ""
+    @State private var actionFeedback: String = ""
 
     private var title: String {
         switch reason {
@@ -80,15 +81,25 @@ struct SetupGuidanceView: View {
 
             VStack(spacing: 8) {
                 Button(action: {
-                    refreshDetectedKey()
+                    APIKeyService.resumeDetection()
+                    let previousKey = detectedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                    refreshDetectedKey(forceDetect: true)
                     onRetry()
+                    let currentKey = detectedKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if currentKey.isEmpty {
+                        actionFeedback = "已重新检测：暂未发现可用 Key（请检查环境变量 / OpenClaw / Keychain）"
+                    } else if currentKey != previousKey {
+                        actionFeedback = "已重新检测：检测结果已更新"
+                    } else {
+                        actionFeedback = "已重新检测：检测结果未变化"
+                    }
                 }) {
                     Text("重新检测密钥")
                         .font(.system(size: 12, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(PressFeedbackButtonStyle())
                 .contentShape(Rectangle())
                 .background(Color.accentColor.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
@@ -102,12 +113,20 @@ struct SetupGuidanceView: View {
                     secondaryButton("打开控制台") {
                         if let url = URL(string: "https://platform.minimaxi.com/user-center/payment/token-plan") {
                             NSWorkspace.shared.open(url)
+                            actionFeedback = "已打开 MiniMax Token Plan 控制台"
                         }
                     }
                     secondaryButton("OpenClaw 目录") {
                         let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".openclaw", isDirectory: true)
                         NSWorkspace.shared.open(url)
+                        actionFeedback = "已打开 OpenClaw 目录"
                     }
+                }
+                if !actionFeedback.isEmpty {
+                    Text(actionFeedback)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -156,14 +175,14 @@ struct SetupGuidanceView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(PressFeedbackButtonStyle())
         .contentShape(Rectangle())
         .background(Color.primary.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: UISpec.buttonCornerRadius))
     }
 
-    private func refreshDetectedKey() {
-        detectedKey = APIKeyService.resolve()
+    private func refreshDetectedKey(forceDetect: Bool = false) {
+        detectedKey = APIKeyService.resolve(forceDetect: forceDetect)
     }
 
     private func savePastedKeyAndRetry() {
@@ -173,8 +192,9 @@ struct SetupGuidanceView: View {
             return
         }
         if APIKeyService.saveToKeychain(trimmed) {
+            APIKeyService.resumeDetection()
             saveFeedback = "已保存到本机 Keychain，正在重新检测..."
-            refreshDetectedKey()
+            refreshDetectedKey(forceDetect: true)
             onRetry()
         } else {
             saveFeedback = "保存失败：写入 Keychain 出错，请检查系统权限"
@@ -229,5 +249,14 @@ struct SetupGuidanceView: View {
                     .foregroundColor(Color(nsColor: .tertiaryLabelColor))
             }
         }
+    }
+}
+
+private struct PressFeedbackButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.72 : 1.0)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

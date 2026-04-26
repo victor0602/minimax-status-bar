@@ -15,13 +15,16 @@ enum APIKeyResolver {
 
     static func resolve(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        keychainLoad: () -> String? = APIKeyKeychainStore.load,
+        keychainSave: (String) -> Bool = APIKeyKeychainStore.save
     ) -> String {
         if let key = environment["MINIMAX_API_KEY"], !key.isEmpty {
+            _ = keychainSave(key)
             return key
         }
 
-        if let key = APIKeyKeychainStore.load(), !key.isEmpty {
+        if let key = keychainLoad(), !key.isEmpty {
             return key
         }
 
@@ -29,6 +32,7 @@ enum APIKeyResolver {
         let envPath = home.appendingPathComponent(".openclaw/.env")
         if let content = try? String(contentsOf: envPath, encoding: .utf8),
            let key = minimaxKey(fromOpenClawEnv: content) {
+            _ = keychainSave(key)
             return key
         }
 
@@ -37,6 +41,7 @@ enum APIKeyResolver {
               let key = minimaxKey(fromOpenClawJSONData: data), !key.isEmpty else {
             return ""
         }
+        _ = keychainSave(key)
         return key
     }
 

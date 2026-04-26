@@ -4,8 +4,14 @@ import Foundation
 ///
 /// 说明：历史上该能力叫 `APIKeyResolver`；为统一命名对外提供 `APIKeyService`，内部复用解析实现。
 enum APIKeyService {
-    static func resolve() -> String {
-        APIKeyResolver.resolve()
+    static func resolve(forceDetect: Bool = false) -> String {
+        if forceDetect {
+            UserDefaults.standard.set(false, forKey: AppStorageKeys.apiKeyDetectionPaused)
+        }
+        if UserDefaults.standard.bool(forKey: AppStorageKeys.apiKeyDetectionPaused) {
+            return ""
+        }
+        return APIKeyResolver.resolve()
     }
 
     static func validateForQuotaAPI(_ key: String) -> APIKeyValidationResult {
@@ -15,6 +21,19 @@ enum APIKeyService {
     @discardableResult
     static func saveToKeychain(_ key: String) -> Bool {
         APIKeyKeychainStore.save(key)
+    }
+
+    @discardableResult
+    static func clearSavedKeychainKey() -> Bool {
+        APIKeyKeychainStore.delete()
+    }
+
+    static func pauseDetection() {
+        UserDefaults.standard.set(true, forKey: AppStorageKeys.apiKeyDetectionPaused)
+    }
+
+    static func resumeDetection() {
+        UserDefaults.standard.set(false, forKey: AppStorageKeys.apiKeyDetectionPaused)
     }
 }
 
