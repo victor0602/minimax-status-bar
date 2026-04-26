@@ -1,7 +1,10 @@
 # MiniMax Status Bar
 
-**A lightweight macOS menu bar companion for MiniMax Token Plan visibility.**  
-**一个轻量的 macOS 菜单栏配额感知工具。**
+**MiniMax Status Bar for macOS | MiniMax Token Plan Monitor | Menu Bar Quota Tracker**  
+**MiniMax 菜单栏状态栏工具（macOS）| Token Plan 用量监控 | 配额追踪**
+
+`Keywords`: MiniMax, MiniMax Token Plan, Status Bar, Menu Bar, macOS, OpenClaw, SwiftUI  
+`关键词`: MiniMax、Token Plan、状态栏、菜单栏、macOS、OpenClaw、SwiftUI
 
 [English](#english) | [中文](#中文)  
 [![Release](https://img.shields.io/github/v/release/victor0602/minimax-status-bar?style=flat-square&color=blue)](https://github.com/victor0602/minimax-status-bar/releases/latest)
@@ -18,6 +21,28 @@
 ![Dark Mode Horizontal v1.1](docs/screenshots-dark-horizontal-v1.1.png)
 
 </div>
+
+---
+
+## v1.1 Release Notes / 正式版更新
+
+### English
+
+- Added manual API key persistence to local macOS Keychain (`Save and Use` flow)
+- Improved setup guidance interaction feedback (button press state + action result text)
+- Added API key management in Settings (`Clear local Keychain key`)
+- Added explicit logout behavior: clearing saved key now cuts off quota session until user retries detection or saves key again
+- Synced externally detected keys (environment / OpenClaw files) into Keychain for stable follow-up sessions
+- Refined first-run behavior: when key is missing, setup guidance is shown without quota cards
+
+### 中文
+
+- 新增手动 API Key 本地持久化（保存到 macOS Keychain，支持“保存并使用”）
+- 优化首次引导交互反馈（按钮按下态与操作结果提示）
+- 设置页新增密钥管理（支持“清除本机 Keychain 密钥”）
+- 新增显式登出语义：清除保存密钥后立即切断配额会话，需用户主动重新检测或重新保存密钥
+- 外部来源密钥（环境变量 / OpenClaw 文件）在检测到后会自动同步到 Keychain，提升后续稳定性
+- 首次无密钥场景优化：仅展示引导，不再混显配额卡片
 
 ---
 
@@ -252,4 +277,3 @@ xcodebuild \
 ### 许可证
 
 本项目采用 [MIT License](LICENSE)。
-

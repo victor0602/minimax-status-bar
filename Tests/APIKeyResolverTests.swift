@@ -3,8 +3,26 @@ import XCTest
 
 final class APIKeyResolverTests: XCTestCase {
     func testResolveUsesEnvironmentVariableFirst() {
-        let key = APIKeyResolver.resolve(environment: ["MINIMAX_API_KEY": "sk-cp-from-env"])
+        let key = APIKeyResolver.resolve(
+            environment: ["MINIMAX_API_KEY": "sk-cp-from-env"],
+            keychainLoad: { nil },
+            keychainSave: { _ in true }
+        )
         XCTAssertEqual(key, "sk-cp-from-env")
+    }
+
+    func testResolveSyncsEnvironmentKeyToKeychain() {
+        var savedKey: String?
+        let resolved = APIKeyResolver.resolve(
+            environment: ["MINIMAX_API_KEY": "sk-cp-sync-me"],
+            keychainLoad: { nil },
+            keychainSave: { key in
+                savedKey = key
+                return true
+            }
+        )
+        XCTAssertEqual(resolved, "sk-cp-sync-me")
+        XCTAssertEqual(savedKey, "sk-cp-sync-me")
     }
 
     func testMinimaxKeyFromOpenClawEnvStripsQuotes() {

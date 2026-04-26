@@ -16,11 +16,15 @@ enum AppStorageKeys {
     static let lowQuotaThresholdPercent = "lowQuotaThresholdPercent"
     /// When remaining ≥ this, low-quota notify latch resets (default 20)
     static let lowQuotaRecoverPercent = "lowQuotaRecoverPercent"
+    /// When true, key auto-detection is paused until user explicitly retries or saves key manually.
+    static let apiKeyDetectionPaused = "apiKeyDetectionPaused"
 }
 
 extension Notification.Name {
     /// Posted when settings change polling / display so `StatusBarController` can reschedule.
     static let minimaxPreferencesDidChange = Notification.Name("com.openclaw.minimax.preferencesDidChange")
+    /// Posted when user explicitly logs out API key session from settings.
+    static let minimaxAPIKeyDidLogout = Notification.Name("com.openclaw.minimax.apiKeyDidLogout")
 }
 
 enum MenuBarDisplayMode: String, CaseIterable, Identifiable {

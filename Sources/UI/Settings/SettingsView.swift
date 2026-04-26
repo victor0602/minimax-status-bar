@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var historyRecords: [DailyUsageRecord] = []
     @State private var selectedTab: Int = 0
     @State private var historyRangeDays: Int = 14
+    @State private var keychainActionFeedback: String = ""
     @Namespace private var rangePickerNamespace
 
     var defaultTabIndex: Int? = nil
@@ -159,6 +160,38 @@ struct SettingsView: View {
                         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
                         metricRow("Version / 版本", "v\(v)")
                         metricRow("License / 许可证", "MIT License")
+                    }
+                }
+
+                settingsCard(title: "密钥管理", icon: "key") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Button(action: {
+                            let cleared = APIKeyService.clearSavedKeychainKey()
+                            APIKeyService.pauseDetection()
+                            if cleared {
+                                keychainActionFeedback = "已清除本机保存的 API Key（Keychain）"
+                            } else {
+                                keychainActionFeedback = "清除失败：请检查系统钥匙串权限"
+                            }
+                            postPrefsChanged()
+                            NotificationCenter.default.post(name: .minimaxAPIKeyDidLogout, object: nil)
+                        }) {
+                            Text("退出 API Key 保存（清除本机 Keychain）")
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 30)
+                        }
+                        .buttonStyle(.borderless)
+                        .contentShape(Rectangle())
+                        .background(Color.primary.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                        if !keychainActionFeedback.isEmpty {
+                            Text(keychainActionFeedback)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ final class StatusBarController {
     private var retryTask: Task<Void, Never>?
     private var workspaceDidWakeObserver: NSObjectProtocol?
     private var preferencesObserver: NSObjectProtocol?
+    private var apiKeyLogoutObserver: NSObjectProtocol?
 
     private var cancellables = Set<AnyCancellable>()
     private var timers: [String: Timer] = [:]
@@ -80,6 +81,16 @@ final class StatusBarController {
                 self?.rebuildAPIService()
                 self?.restartPollingFromUserDefaults()
                 self?.updateStatusBarColor()
+            }
+        }
+
+        apiKeyLogoutObserver = NotificationCenter.default.addObserver(
+            forName: .minimaxAPIKeyDidLogout,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.forceLogoutSession()
             }
         }
     }
@@ -238,8 +249,25 @@ final class StatusBarController {
         if let observer = preferencesObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = apiKeyLogoutObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         networkMonitor?.stop()
         networkMonitor = nil
+    }
+
+    private func forceLogoutSession() {
+        retryCount = 0
+        retryTask?.cancel()
+        retryTask = nil
+        apiService = nil
+        cancelTimer(name: "polling")
+        cancelTimer(name: "menubarHint")
+        quotaState.models = []
+        quotaState.isLoading = false
+        quotaState.lastError = nil
+        quotaState.setupReason = .missingAPIKey
+        updateStatusBarColor()
     }
 
     private func manualRefresh() {
