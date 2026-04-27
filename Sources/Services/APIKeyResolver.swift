@@ -8,7 +8,8 @@ enum APIKeyValidationResult {
     case nonTokenPlanKey        // Looks like a regular API key (sk-), not a Token Plan key (sk-cp-)
 }
 
-/// Resolves MiniMax API key from environment, Keychain, OpenClaw `.env`, or `openclaw.json`.
+/// Resolves MiniMax API key from environment, OpenClaw `.env`, `openclaw.json`, or Keychain (last-resort cache).
+/// OpenClaw file sources take precedence over Keychain so key rotation in disk config is not blocked by a stale cache.
 enum APIKeyResolver {
     /// Minimum length for a valid API key (prefix + content)
     private static let minimumKeyLength = 40
@@ -16,6 +17,7 @@ enum APIKeyResolver {
     static func resolve(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default,
+        homeForOpenClaw: URL? = nil,
         keychainLoad: () -> String? = APIKeyKeychainStore.load,
         keychainSave: (String) -> Bool = APIKeyKeychainStore.save
     ) -> String {
@@ -24,11 +26,7 @@ enum APIKeyResolver {
             return key
         }
 
-        if let key = keychainLoad(), !key.isEmpty {
-            return key
-        }
-
-        let home = fileManager.homeDirectoryForCurrentUser
+        let home = homeForOpenClaw ?? fileManager.homeDirectoryForCurrentUser
         let envPath = home.appendingPathComponent(".openclaw/.env")
         if let content = try? String(contentsOf: envPath, encoding: .utf8),
            let key = minimaxKey(fromOpenClawEnv: content) {
@@ -37,12 +35,16 @@ enum APIKeyResolver {
         }
 
         let jsonPath = home.appendingPathComponent(".openclaw/openclaw.json")
-        guard let data = try? Data(contentsOf: jsonPath),
-              let key = minimaxKey(fromOpenClawJSONData: data), !key.isEmpty else {
-            return ""
+        if let data = try? Data(contentsOf: jsonPath),
+           let key = minimaxKey(fromOpenClawJSONData: data), !key.isEmpty {
+            _ = keychainSave(key)
+            return key
         }
-        _ = keychainSave(key)
-        return key
+
+        if let key = keychainLoad(), !key.isEmpty {
+            return key
+        }
+        return ""
     }
 
     /// Validates an API key for Token Plan quota API usage.
