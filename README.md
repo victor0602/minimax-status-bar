@@ -85,7 +85,7 @@ graph TB
     end
 
     subgraph Services["Service Layer"]
-        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json"]
+        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json → keychain"]
         MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\nrequest timeout + error mapping"]
         UpdateService["UpdateService\nGitHub Releases polling"]
         NotificationService["NotificationService\nlow-quota one-shot notify/reset"]
@@ -202,7 +202,7 @@ graph TB
     end
 
     subgraph Services["服务层"]
-        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json"]
+        APIKeyService["APIKeyResolver\nenv → .env → openclaw.json → keychain"]
         MiniMaxAPI["MiniMaxAPIService\nfetchQuota()\n请求超时与错误映射"]
         UpdateService["UpdateService\nGitHub Releases 轮询"]
         NotificationService["NotificationService\n低配额单次提醒与恢复重置"]

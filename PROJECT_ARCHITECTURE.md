@@ -6,15 +6,17 @@
 
 ## 一、项目概览
 
-| 属性 | 说明 |
-|------|------|
-| **项目名称** | MiniMax Status Bar |
-| **类型** | macOS 菜单栏工具（LSUIElement App，无 Dock 图标） |
-| **技术栈** | Swift 5.9 · SwiftUI · AppKit · SQLite.swift 0.15.3 |
-| **最低 macOS** | 13.0 |
-| **构建工具** | XcodeGen |
-| **当前版本** | v2.0.3（Build 8） |
-| **定位** | 为重度使用 MiniMax M2.7 Token Plan 的开发者提供菜单栏配额感知与用量追踪 |
+
+| 属性           | 说明                                                 |
+| ------------ | -------------------------------------------------- |
+| **项目名称**     | MiniMax Status Bar                                 |
+| **类型**       | macOS 菜单栏工具（LSUIElement App，无 Dock 图标）             |
+| **技术栈**      | Swift 5.9 · SwiftUI · AppKit · SQLite.swift 0.15.3 |
+| **最低 macOS** | 13.0                                               |
+| **构建工具**     | XcodeGen                                           |
+| **当前版本**     | v2.0.3（Build 8）                                    |
+| **定位**       | 为重度使用 MiniMax M2.7 Token Plan 的开发者提供菜单栏配额感知与用量追踪   |
+
 
 ---
 
@@ -78,7 +80,7 @@ minimax-status-bar/
 │           ├── AboutPanelView.swift
 │           ├── DownloadingUpdateOverlayView.swift
 │           └── UsageHistoryPanelView.swift
-├── Tests/                          # 单元测试（13个文件，70+用例）
+├── Tests/                          # 单元测试（14 个 *Tests + Mock 辅助，约 80+ 用例）
 ├── Resources/
 │   ├── Assets.xcassets/
 │   │   ├── AppIcon.appiconset/   # App 图标（全尺寸）
@@ -96,17 +98,19 @@ minimax-status-bar/
 
 ## 三、技术栈
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| **语言** | Swift 5.9 | 最低 macOS 13.0 |
-| **UI 框架** | SwiftUI + AppKit | SwiftUI 做视图，AppKit 做菜单栏容器 |
-| **持久化** | SQLite.swift 0.15.3 | 用量历史存储 |
-| **构建** | XcodeGen | `xcodegen generate` |
-| **签名** | Ad-hoc（CI）/ 开发签名（本地） | CODE_SIGNING_ALLOWED=NO |
-| **CI/CD** | GitHub Actions | Tag push 触发自动构建 DMG |
-| **通知** | UNUserNotificationCenter | 低配额告警 + 更新通知 |
-| **网络监控** | NWPathMonitor | 网络状态监听 |
-| **开机启动** | SMAppService | macOS 13+ 原生支持 |
+
+| 层级        | 技术                       | 说明                        |
+| --------- | ------------------------ | ------------------------- |
+| **语言**    | Swift 5.9                | 最低 macOS 13.0             |
+| **UI 框架** | SwiftUI + AppKit         | SwiftUI 做视图，AppKit 做菜单栏容器 |
+| **持久化**   | SQLite.swift 0.15.3      | 用量历史存储                    |
+| **构建**    | XcodeGen                 | `xcodegen generate`       |
+| **签名**    | Ad-hoc（CI）/ 开发签名（本地）     | CODE_SIGNING_ALLOWED=NO   |
+| **CI/CD** | GitHub Actions           | Tag push 触发自动构建 DMG       |
+| **通知**    | UNUserNotificationCenter | 低配额告警 + 更新通知              |
+| **网络监控**  | NWPathMonitor            | 网络状态监听                    |
+| **开机启动**  | SMAppService             | macOS 13+ 原生支持            |
+
 
 ---
 
@@ -136,30 +140,35 @@ main.swift
 
 ## 五、配置管理
 
-### API Key 解析优先级（低 → 高）
+### API Key 解析顺序（先匹配先用）
+
+Keychain 仅作**最后**回退，避免盘上的新密钥被旧 Keychain 项永久覆盖。
 
 ```
 1. 环境变量 MINIMAX_API_KEY
 2. ~/.openclaw/.env 中的 MINIMAX_API_KEY=
 3. ~/.openclaw/openclaw.json 中 models.providers.minimax.apiKey
                          或 env.MINIMAX_API_KEY
+4. Keychain 缓存（此前由“保存并使用”或上述来源成功解析后同步）
 ```
 
 **格式要求**: Token Plan Key 以 `sk-cp-` 开头，长度 ≥ 40 字符
 
 ### UserDefaults 存储键（`AppConfig.swift`）
 
-| 键 | 类型 | 说明 |
-|----|------|------|
-| `refreshInterval` | Int | 轮询间隔（秒），默认 60 |
-| `menuBarDisplayMode` | String | 简洁/详细模式 |
-| `notificationsEnabled` | Bool | 通知开关 |
-| `autoCheckUpdates` | Bool | 自动检查更新 |
-| `launchAtLogin` | Bool | 开机启动 |
-| `requestIDEnabled` | Bool | 请求 ID 开关 |
-| `apiTimeout` | Double | API 超时秒数 |
-| `cachedModels` | Data | Codable 缓存 |
-| `cachedChecksum` | String | 缓存校验和 |
+
+| 键                      | 类型     | 说明            |
+| ---------------------- | ------ | ------------- |
+| `refreshInterval`      | Int    | 轮询间隔（秒），默认 60 |
+| `menuBarDisplayMode`   | String | 简洁/详细模式       |
+| `notificationsEnabled` | Bool   | 通知开关          |
+| `autoCheckUpdates`     | Bool   | 自动检查更新        |
+| `launchAtLogin`        | Bool   | 开机启动          |
+| `requestIDEnabled`     | Bool   | 请求 ID 开关      |
+| `apiTimeout`           | Double | API 超时秒数      |
+| `cachedModels`         | Data   | Codable 缓存    |
+| `cachedChecksum`       | String | 缓存校验和         |
+
 
 ---
 
@@ -190,10 +199,12 @@ class QuotaState: ObservableObject {
 
 ### 6.3 协议抽象
 
-| 协议 | 实现 | 用途 |
-|------|------|------|
-| `APIServiceProtocol` | `MiniMaxAPIService` / `MockQuotaAPIService` | API 层可测试 |
-| `QuotaStatePersistence` | `UserDefaultsQuotaPersistence` / `MockQuotaPersistence` | 缓存层可测试 |
+
+| 协议                      | 实现                                                      | 用途       |
+| ----------------------- | ------------------------------------------------------- | -------- |
+| `APIServiceProtocol`    | `MiniMaxAPIService` / `MockQuotaAPIService`             | API 层可测试 |
+| `QuotaStatePersistence` | `UserDefaultsQuotaPersistence` / `MockQuotaPersistence` | 缓存层可测试   |
+
 
 ### 6.4 Actor 隔离
 
@@ -213,27 +224,31 @@ enum AppError: LocalizedError {
 
 ## 七、轮询与重试机制
 
-| 事件 | 行为 |
-|------|------|
-| 正常轮询 | 每 30/60/120/300s（用户可配置） |
-| 失败重试 | 指数退避：2s → 4s → 8s，最多 3 次 |
-| 低配额时 | 自动缩短至 10s 轮询 |
-| 睡眠唤醒 | `NSWorkspace.didWakeNotification` 立即刷新一次 |
-| 网络恢复 | `NWPathMonitor` 从不可达变可达时立即刷新 |
-| 手动刷新 | ⌘R 或点击刷新按钮 |
+
+| 事件     | 行为                                                  |
+| ------ | --------------------------------------------------- |
+| 正常轮询   | 每 30/60/120/300s（用户可配置）                             |
+| 失败重试   | 指数退避：2s → 4s → 8s，最多 3 次                            |
+| 低配额时   | 自动缩短至 10s 轮询                                        |
+| 睡眠唤醒   | `NSWorkspace.didWakeNotification` 立即刷新一次            |
+| 网络恢复   | `NWPathMonitor` 从不可达变可达时立即刷新                        |
+| 手动刷新   | ⌘R 或点击刷新按钮                                          |
 | 偏好设置变更 | `NotificationCenter.minimaxPreferencesDidChange` 刷新 |
+
 
 ---
 
 ## 八、菜单栏渲染规则
 
-| 条件 | 菜单栏显示 |
-|------|------------|
-| `setupReason != nil` | ` ○`（待连接）|
-| `lastError != nil && primaryModel == nil` | ` ⚠︎`（获取失败）|
-| `isLoading` | `↻` 或 `⟳`（交替动画）|
-| 正常 | `🟢/🟡/🔴 + tag + percent%` + `~`（缓存）+ `⬆`（有更新）|
-| 有可用更新 | 附加 `· 可更新 vX.X.X` |
+
+| 条件                                        | 菜单栏显示                                           |
+| ----------------------------------------- | ----------------------------------------------- |
+| `setupReason != nil`                      | `○`（待连接）                                        |
+| `lastError != nil && primaryModel == nil` | `⚠︎`（获取失败）                                      |
+| `isLoading`                               | `↻` 或 `⟳`（交替动画）                                 |
+| 正常                                        | `🟢/🟡/🔴 + tag + percent%` + `~`（缓存）+ `⬆`（有更新） |
+| 有可用更新                                     | 附加 `· 可更新 vX.X.X`                               |
+
 
 **颜色规则**: 剩余 >30% 绿色，>10% 黄色，≤10% 红色
 
@@ -269,24 +284,28 @@ SQLite (UsageHistorySQLiteStore)
 
 ## 十、状态与数据
 
-| 数据 | 存储位置 | 访问方式 |
-|------|----------|----------|
-| 配额数据 | 内存 + UserDefaults | `QuotaState`（单一数据源） |
-| 用量历史 | SQLite | `UsageHistorySQLiteStore` |
-| 用户偏好 | UserDefaults | `AppStorage` / 直接读写 |
-| API Key | 内存（不持久化）| `APIKeyService` |
+
+| 数据      | 存储位置              | 访问方式                      |
+| ------- | ----------------- | ------------------------- |
+| 配额数据    | 内存 + UserDefaults | `QuotaState`（单一数据源）       |
+| 用量历史    | SQLite            | `UsageHistorySQLiteStore` |
+| 用户偏好    | UserDefaults      | `AppStorage` / 直接读写       |
+| API Key | 内存（不持久化）          | `APIKeyService`           |
+
 
 ---
 
 ## 十一、样式与界面
 
-| 样式 | 技术 | 说明 |
-|------|------|------|
-| 窗口效果 | `NSVisualEffectView` | 玻璃模糊背景 |
-| 按钮样式 | 自定义 `ButtonStyleApplier` | hover 高亮 |
-| 卡片样式 | `CardStyleApplier` | 半透明背景 |
-| 骨架屏 | `SkeletonRowView` | LinearGradient 滑动遮罩动画 |
-| 菜单栏图标 | Template Image | 系统自动适配深浅色 |
+
+| 样式    | 技术                       | 说明                    |
+| ----- | ------------------------ | --------------------- |
+| 窗口效果  | `NSVisualEffectView`     | 玻璃模糊背景                |
+| 按钮样式  | 自定义 `ButtonStyleApplier` | hover 高亮              |
+| 卡片样式  | `CardStyleApplier`       | 半透明背景                 |
+| 骨架屏   | `SkeletonRowView`        | LinearGradient 滑动遮罩动画 |
+| 菜单栏图标 | Template Image           | 系统自动适配深浅色             |
+
 
 ---
 
@@ -298,20 +317,24 @@ SQLite (UsageHistorySQLiteStore)
 
 ### 测试文件组织
 
-| 测试文件 | 覆盖内容 |
-|----------|----------|
-| `APIKeyResolverTests.swift` | 环境变量解析、.env 解析、.json 解析、格式校验 |
-| `APIServiceProtocolTests.swift` | Mock 返回模型、错误传播 |
-| `CacheConsistencyCheckerTests.swift` | 校验和、不变量、实质性一致 |
-| `DisplayModeTests.swift` | 枚举 rawValue、数字格式化 |
-| `ExportServiceTests.swift` | CSV 生成、逗号转义、排序、写入 |
-| `MiniMaxAPIServiceTests.swift` | URLProtocol Mock：网络错误、HTTP 错误、解码失败、API 错误 |
-| `NetworkMonitorTests.swift` | 初始路径、恢复触发、持续不可达 |
-| `NotificationServiceTests.swift` | 三段区间通知状态机 |
-| `QuotaStatePersistenceTests.swift` | 缓存加载、持久化保存 |
-| `UpdateServiceTests.swift` | 版本比较（等于/大于/不同位数）|
-| `UsageRecordTests.swift` | Codable、聚合计算、日期格式化 |
-| `ModelQuotaTests.swift` | Raw→Model 转换、百分比、主力模型选取 |
+
+| 测试文件                                 | 覆盖内容                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `APIKeyResolverTests.swift`          | 环境变量解析、.env 解析、.json 解析、格式校验                                                                      |
+| `APIServiceProtocolTests.swift`      | Mock 返回模型、错误传播                                                                                    |
+| `CacheConsistencyCheckerTests.swift` | 校验和、不变量、实质性一致                                                                                     |
+| `DisplayModeTests.swift`             | 枚举 rawValue、数字格式化                                                                                 |
+| `ExportServiceTests.swift`           | CSV 生成、逗号转义、排序、写入                                                                                 |
+| `MiniMaxAPIServiceTests.swift`       | URLProtocol Mock：网络错误、HTTP 错误、解码失败、API 错误                                                         |
+| `NetworkMonitorTests.swift`          | 初始路径、恢复触发、持续不可达                                                                                   |
+| `NotificationServiceTests.swift`     | 三段区间通知状态机                                                                                         |
+| `QuotaStatePersistenceTests.swift`   | 缓存加载、持久化保存                                                                                        |
+| `UpdateServiceTests.swift`           | 版本比较（等于/大于/不同位数）                                                                                  |
+| `ReleaseDMGInstallerTests.swift`     | 应用内更新：`ditto`+`replaceItemAt` 全量替换与 `rsync --delete` 去孤儿；`cp -R` 嵌套回归；最小 bundle 可启动性检查（非 E2E DMG） |
+| `HistoryAnalyticsTests.swift`        | 用量历史区间、汇总与聚合                                                                                      |
+| `UsageRecordTests.swift`             | Codable、聚合计算、日期格式化                                                                                |
+| `ModelQuotaTests.swift`              | Raw→Model 转换、百分比、主力模型选取                                                                           |
+
 
 ### Mock 策略
 
@@ -334,15 +357,30 @@ class MockQuotaAPIService: APIServiceProtocol { ... }
 xcodebuild test -scheme minimax-status-bar -destination 'platform=macOS'
 ```
 
+### 自更新：未覆盖的残余风险（E2E / 手测验收）
+
+P1 级安装逻辑与 `ReleaseDMGInstallerTests` 已关住 **磁盘上**的整包替换与去孤儿、反对 `cp` 式嵌套；**不**等同完整「应用内自更新」自动化验收。发布或重大发版前，若需降低残余风险，可择要做下列 **E2E 或手测**（不列为当前阻塞项）：
+
+
+| 环节                 | 说明                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `hdiutil` 真挂载 / 分离 | 单元测试不挂载真实 DMG；实机验证附件、无 browse、detach 后无残留盘符                                                                    |
+| 提权路径               | 走 `runRsyncWithAdministrator`（`osascript` 管理员）时，权限弹窗、路径转义、失败回退                                                 |
+| 下载链路               | `UpdateFileDownloader` + 真实网络或代理下的 DMG 落地、断点/失败重试与进度                                                           |
+| 重启闭环               | `UpdateState` 中 `NSWorkspace.open(bundlePath)` + `terminate` 后，**新**进程来自 **新**包（可对照 `CFBundleVersion` 或可执行时间戳） |
+
+
+**定位**：上表是 **残余风险** 与发布前可选清单，不是「无 E2E 则不得合并」的门槛；与 `ReleaseDMGInstaller` 的临时目录假 bundle 单测相互补充，而非重复。
+
 ---
 
 ## 十三、常见坑
 
 ### 1. API JSON 字段语义
 
-> `current_interval_usage_count` = 本周期已用次数，`current_weekly_usage_count` = 本周已用次数。剩余次数由 `total − usage` 推算。
+> 与 API 字段名相反：JSON 里的 `current_interval_usage_count`、`current_weekly_usage_count` 在响应中均表示 **剩余次数**（见 `ModelQuotaRaw` 注释）。本应用已用次数由 `**current_interval_total_count − current_interval_usage_count`**（周期）与 `**current_weekly_total_count − current_weekly_usage_count`**（本周）推算，与 `ModelQuota.from(raw:)` 一致。
 
-历史代码曾反转过语义，现已修正，字段名即含义。
+历史上曾按「已用」误读过这两字段，现已以「剩余」为准并与控制台「剩余」对齐。
 
 ### 2. 主力模型选取优先级
 
@@ -365,6 +403,7 @@ M2.7 > minimax-m > 数组第一个（兜底）
 ### 5. 网络恢复 vs 睡眠唤醒
 
 两者**互补**而非重复：
+
 - 网络恢复监听 `NWPathMonitor`
 - 睡眠唤醒监听 `NSWorkspace.didWakeNotification`
 
@@ -421,29 +460,34 @@ push tag v* →
 
 ## 十六、关键文件索引
 
-| 文件 | 行数 | 重要性 | 说明 |
-|------|------|--------|------|
-| `Sources/App/main.swift` | 18 | ⭐⭐⭐ | 入口，单实例检查 |
-| `Sources/UI/StatusBarController.swift` | ~250+ | ⭐⭐⭐ | 核心编排器，Timer/轮询/刷新 |
-| `Sources/Models/ModelQuota.swift` | ~250+ | ⭐⭐⭐ | 核心模型，API Raw 结构 |
-| `Sources/Models/QuotaState.swift` | ~150+ | ⭐⭐⭐ | 单一数据源 |
-| `Sources/Services/MiniMaxAPIService.swift` | ~150+ | ⭐⭐⭐ | API 实现 |
-| `Sources/UI/DetailView.swift` | ~200+ | ⭐⭐ | 主面板容器 |
-| `Sources/Services/APIKeyResolver.swift` | ~100+ | ⭐⭐ | Key 三级解析 |
-| `Sources/Services/NotificationService.swift` | ~100+ | ⭐⭐ | 三段通知状态机 |
-| `Sources/Services/CacheConsistencyChecker.swift` | ~100+ | ⭐⭐ | 校验和检查 |
-| `Sources/UI/Settings/SettingsView.swift` | ~200+ | ⭐⭐ | 设置窗口 |
-| `Tests/MiniMaxAPIServiceTests.swift` | ~100+ | ⭐⭐ | API 测试 |
+
+| 文件                                               | 行数    | 重要性 | 说明                |
+| ------------------------------------------------ | ----- | --- | ----------------- |
+| `Sources/App/main.swift`                         | 18    | ⭐⭐⭐ | 入口，单实例检查          |
+| `Sources/UI/StatusBarController.swift`           | ~250+ | ⭐⭐⭐ | 核心编排器，Timer/轮询/刷新 |
+| `Sources/Models/ModelQuota.swift`                | ~250+ | ⭐⭐⭐ | 核心模型，API Raw 结构   |
+| `Sources/Models/QuotaState.swift`                | ~150+ | ⭐⭐⭐ | 单一数据源             |
+| `Sources/Services/MiniMaxAPIService.swift`       | ~150+ | ⭐⭐⭐ | API 实现            |
+| `Sources/UI/DetailView.swift`                    | ~200+ | ⭐⭐  | 主面板容器             |
+| `Sources/Services/APIKeyResolver.swift`          | ~100+ | ⭐⭐  | Key 三级解析          |
+| `Sources/Services/NotificationService.swift`     | ~100+ | ⭐⭐  | 三段通知状态机           |
+| `Sources/Services/CacheConsistencyChecker.swift` | ~100+ | ⭐⭐  | 校验和检查             |
+| `Sources/UI/Settings/SettingsView.swift`         | ~200+ | ⭐⭐  | 设置窗口              |
+| `Tests/MiniMaxAPIServiceTests.swift`             | ~100+ | ⭐⭐  | API 测试            |
+
 
 ---
 
 ## 十七、相关文档
 
-| 文档 | 位置 | 内容 |
-|------|------|------|
-| README.md | 根目录 | 项目介绍、快速上手 |
-| improvement-design.md | docs/ | v2.1.1 全面优化设计 |
-| optimization-summary.md | docs/ | v2.1.2 优化总结 |
-| verification-report.md | docs/ | v2.1.2 功能验证报告 |
-| 2026-04-12-usage-history-plan.md | docs/superpowers/plans/ | 用量历史开发计划 |
-| 2026-04-12-usage-history-design.md | docs/superpowers/specs/ | 用量历史设计规格 |
+
+| 文档                                 | 位置                      | 内容            |
+| ---------------------------------- | ----------------------- | ------------- |
+| README.md                          | 根目录                     | 项目介绍、快速上手     |
+| improvement-design.md              | docs/                   | v2.1.1 全面优化设计 |
+| optimization-summary.md            | docs/                   | v2.1.2 优化总结   |
+| verification-report.md             | docs/                   | v2.1.2 功能验证报告 |
+| 2026-04-12-usage-history-plan.md   | docs/superpowers/plans/ | 用量历史开发计划      |
+| 2026-04-12-usage-history-design.md | docs/superpowers/specs/ | 用量历史设计规格      |
+
+

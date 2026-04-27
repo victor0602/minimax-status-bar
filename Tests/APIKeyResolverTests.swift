@@ -58,6 +58,36 @@ extension APIKeyResolverTests {
         return prefix + suffix
     }
 
+    func testResolveOpenClawEnvOverridesKeychain() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("APIKeyEnvOverride-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent(".openclaw"), withIntermediateDirectories: true)
+        let envFile = home.appendingPathComponent(".openclaw/.env")
+        let fileKey = makeKey(prefix: "sk-cp-file-", totalLength: 40)
+        try "MINIMAX_API_KEY=\(fileKey)\n".write(to: envFile, atomically: true, encoding: .utf8)
+
+        let resolved = APIKeyResolver.resolve(
+            environment: [:],
+            homeForOpenClaw: home,
+            keychainLoad: { "stale-should-be-ignored" },
+            keychainSave: { _ in true }
+        )
+        XCTAssertEqual(resolved, fileKey)
+    }
+
+    func testResolveFallsBackToKeychainWhenNoFileSources() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("APIKeyKchainOnly-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        let chainKey = makeKey(prefix: "sk-cp-chain-", totalLength: 40)
+
+        let resolved = APIKeyResolver.resolve(
+            environment: [:],
+            homeForOpenClaw: home,
+            keychainLoad: { chainKey },
+            keychainSave: { _ in true }
+        )
+        XCTAssertEqual(resolved, chainKey)
+    }
+
     func testValidateForQuotaAPI_EmptyString_ReturnsMissing() {
         XCTAssertEqual(APIKeyResolver.validateForQuotaAPI(""), .missing)
     }
