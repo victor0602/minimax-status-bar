@@ -2,12 +2,25 @@ import AppKit
 import SwiftUI
 import UserNotifications
 
+/// 运行环境的检测逻辑，区分测试环境与正常启动环境。
+/// XCTest 环境下 AppDelegate 不应启动完整的 StatusBarController，
+/// 避免测试进程意外访问真实 API 或触发网络请求。
+enum RuntimeEnvironment {
+    /// 是否处于 XCTest 测试环境
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private var statusBarController: StatusBarController?
     private var settingsWindowController: NSWindowController?
     private var localKeyDownMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // 测试环境下跳过 StatusBarController 初始化，避免测试进程访问真实 API
+        guard !RuntimeEnvironment.isRunningTests else { return }
+
         UNUserNotificationCenter.current().delegate = self
         NotificationService.shared.registerUpdateNotificationCategory()
         statusBarController = StatusBarController()

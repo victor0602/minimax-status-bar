@@ -6,12 +6,14 @@ enum ExportError: Error, LocalizedError {
     case noData
     case writeFailed
     case cancelled
+    case storageUnavailable
 
     var errorDescription: String? {
         switch self {
         case .noData: return "没有可用数据"
         case .writeFailed: return "写入文件失败"
         case .cancelled: return "用户取消"
+        case .storageUnavailable: return "历史存储不可用"
         }
     }
 }
@@ -36,53 +38,59 @@ final class ExportService {
     }
 
     /// 导出 CSV（交互式：弹出 NSSavePanel）
+    ///
+    /// 使用 sheet 模式异步回调，不在主线程阻塞。
     /// - Parameters:
     ///   - store: 数据源
     ///   - fileName: 默认文件名
-    func exportCSV(from store: UsageHistorySQLiteStore, fileName: String = "minimax-usage-history.csv") throws {
-        let records = try store.loadDailyRecords(limit: 10_000)
-        guard !records.isEmpty else {
-            throw ExportError.noData
+    ///   - completion: 导出结果回调（成功返回文件 URL，失败返回具体错误）
+    func exportCSV(
+        from store: UsageHistorySQLiteStore,
+        fileName: String = "minimax-usage-history.csv",
+        completion: ((Result<URL, Error>) -> Void)? = nil
+    ) {
+        // 先检查存储是否可用，避免误报"无数据"
+        guard store.isAvailable else {
+            completion?(.failure(ExportError.storageUnavailable))
+            return
         }
 
-        let csv = generateCSV(from: records)
+        do {
+            let records = try store.loadDailyRecords(limit: 10_000)
+            let csv = generateCSV(from: records)
 
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
-        panel.nameFieldStringValue = fileName
-        panel.canCreateDirectories = true
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.commaSeparatedText]
+            panel.nameFieldStringValue = fileName
+            panel.canCreateDirectories = true
 
-        // 尝试获取窗口用于 sheet 模式
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-            var saveError: Error?
-            let semaphore = DispatchSemaphore(value: 0)
-
-            panel.beginSheetModal(for: window) { response in
-                if response == .OK, let url = panel.url {
-                    do {
-                        try csv.write(to: url, atomically: true, encoding: .utf8)
-                    } catch {
-                        saveError = error
+            if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+                panel.beginSheetModal(for: window) { response in
+                    if response == .OK, let url = panel.url {
+                        do {
+                            try csv.write(to: url, atomically: true, encoding: .utf8)
+                            completion?(.success(url))
+                        } catch {
+                            completion?(.failure(error))
+                        }
+                    } else {
+                        completion?(.failure(ExportError.cancelled))
                     }
-                } else {
-                    saveError = ExportError.cancelled
                 }
-                semaphore.signal()
+            } else {
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+                do {
+                    try csv.write(to: url, atomically: true, encoding: .utf8)
+                    completion?(.success(url))
+                } catch {
+                    completion?(.failure(ExportError.writeFailed))
+                }
             }
-
-            semaphore.wait()
-
-            if let error = saveError {
-                throw error
-            }
-        } else {
-            // 无窗口时写入临时目录
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-            do {
-                try csv.write(to: url, atomically: true, encoding: .utf8)
-            } catch {
-                throw ExportError.writeFailed
-            }
+        } catch let error as UsageHistoryError {
+            // 区分"存储不可用"和"无数据"两种错误反馈
+            completion?(.failure(error))
+        } catch {
+            completion?(.failure(error))
         }
     }
 

@@ -12,7 +12,7 @@ EXPORT_PLIST="scripts/ExportOptions.plist"
 ARTIFACTS_DIR="build"
 APP_NAME="MiniMax Status Bar"
 APP_FILENAME="${APP_NAME}.app"
-DMG_FILENAME="${ARTIFACTS_DIR}/MiniMaxStatusBar-v3.0.0.dmg"
+DMG_FILENAME="${ARTIFACTS_DIR}/MiniMaxStatusBar-v1.2.dmg"
 STAGING_DIR="${ARTIFACTS_DIR}/dmg-staging"
 
 # Clean previous artifacts

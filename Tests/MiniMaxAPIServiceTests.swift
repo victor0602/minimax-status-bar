@@ -136,5 +136,26 @@ final class MiniMaxAPIServiceTests: XCTestCase {
             XCTFail("wrong error type \(error)")
         }
     }
-}
 
+    func testFetchQuota_DebugBuildInjectsRequestID() async throws {
+        let session = makeSession()
+        let payload = """
+        {
+          "base_resp": { "status_code": 0, "status_msg": "" },
+          "model_remains": []
+        }
+        """.data(using: .utf8)!
+
+        MockURLProtocol.requestHandler = { req in
+            #if DEBUG
+            XCTAssertNotNil(req.value(forHTTPHeaderField: "X-Request-ID"))
+            #endif
+            let url = req.url!
+            let resp = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (resp, payload)
+        }
+        let sut = MiniMaxAPIService(apiKey: "sk-cp-valid-key-placeholder", session: session)
+
+        _ = try await sut.fetchQuota()
+    }
+}

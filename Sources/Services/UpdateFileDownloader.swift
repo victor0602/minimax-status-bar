@@ -71,18 +71,23 @@ private final class UpdateDownloadDelegate: NSObject, URLSessionDownloadDelegate
 // MARK: - Public downloader
 
 enum UpdateFileDownloader {
-    /// Downloads a file to `destination` (file is replaced if it exists). `progress` and completion are delivered on the main queue.
+    /// Downloads a file to `destination` (file is replaced if it exists).
+    /// `progress` and completion are delivered on the main queue.
+    /// `onDownloadComplete` is called after completion so caller can invalidate its retained session.
     static func download(
         from url: URL,
         to destination: URL,
         progress: @escaping (Double) -> Void,
-        sessionCreated: ((URLSession) -> Void)? = nil
+        sessionCreated: ((URLSession) -> Void)? = nil,
+        onDownloadComplete: (() -> Void)? = nil
     ) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             let delegate = UpdateDownloadDelegate(
                 destination: destination,
                 progressHandler: progress,
                 completionHandler: { result in
+                    // 调用 onDownloadComplete 让调用方释放 session
+                    onDownloadComplete?()
                     switch result {
                     case .success:
                         continuation.resume()
