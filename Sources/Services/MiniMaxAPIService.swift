@@ -37,8 +37,15 @@ final class MiniMaxAPIService: APIServiceProtocol {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        // 请求 ID：DEBUG 下自动注入，RELEASE 下可通过配置启用（便于排查问题）
-        if APIConfigService.shared.enableRequestID {
+        // 请求 ID：DEBUG 下默认开启（便于排查问题），RELEASE 下通过设置页手动启用
+        let shouldInjectRequestID: Bool = {
+            #if DEBUG
+            return true
+            #else
+            return APIConfigService.shared.enableRequestID
+            #endif
+        }()
+        if shouldInjectRequestID {
             let requestID = APIConfigService.generateRequestID()
             request.setValue(requestID, forHTTPHeaderField: "X-Request-ID")
             #if DEBUG
@@ -75,11 +82,10 @@ final class MiniMaxAPIService: APIServiceProtocol {
             throw MiniMaxAPIError.decodingError
         }
 
+        // DEBUG 日志：仅输出模型名称列表，不输出完整 JSON（含配额数据）
         #if DEBUG
-        if let jsonString = String(data: data, encoding: .utf8) {
-            print("MiniMax Status Bar [DEBUG] API raw response:")
-            print(jsonString)
-        }
+        let modelNames = decoded.modelRemains.map { $0.modelName }
+        print("MiniMax Status Bar [DEBUG] API response models: \(modelNames)")
         #endif
 
         if let baseResp = decoded.baseResp, baseResp.statusCode != 0 {

@@ -13,9 +13,11 @@ struct SettingsView: View {
     @AppStorage(AppStorageKeys.prefersAutomaticUpdateInstall) private var autoUpdate = false
 
     @State private var historyRecords: [DailyUsageRecord] = []
+    @State private var historyError: String? = nil
     @State private var selectedTab: Int = 0
     @State private var historyRangeDays: Int = 14
     @State private var keychainActionFeedback: String = ""
+    @State private var exportFeedback: String = ""
     @Namespace private var rangePickerNamespace
 
     var defaultTabIndex: Int? = nil
@@ -234,7 +236,19 @@ struct SettingsView: View {
                         }
                     }
 
-                    if filteredHistoryRecords.isEmpty {
+                    if let error = historyError {
+                        VStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 28))
+                                .foregroundColor(.orange)
+                            Text("无法加载历史数据")
+                                .font(.headline)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                    } else if filteredHistoryRecords.isEmpty {
                         emptyHistoryView
                     } else {
                         Chart(filteredHistoryRecords) { rec in
@@ -265,6 +279,12 @@ struct SettingsView: View {
                     HStack {
                         Button("刷新") { reloadHistory() }
                         Button("导出 CSV…") { exportCSV() }
+                        if !exportFeedback.isEmpty {
+                            Text(exportFeedback)
+                                .font(.caption)
+                                .foregroundColor(exportFeedback.contains("失败") ? .red : .secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                         Spacer()
                         Text("按日期倒序")
                             .font(.caption)
@@ -459,12 +479,26 @@ struct SettingsView: View {
     }
 
     private func reloadHistory() {
-        historyRecords = (try? UsageHistorySQLiteStore.shared.loadDailyRecords(limit: 90)) ?? []
+        historyError = nil
+        historyRecords = UsageHistorySQLiteStore.shared.loadDailyRecordsOrNil(limit: 90)
+        if historyRecords.isEmpty && !UsageHistorySQLiteStore.shared.isAvailable {
+            historyError = "历史存储不可用"
+        }
     }
 
     private func exportCSV() {
         let service = ExportService()
-        try? service.exportCSV(from: UsageHistorySQLiteStore.shared)
+        exportFeedback = ""
+        service.exportCSV(from: UsageHistorySQLiteStore.shared) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let url):
+                    self.exportFeedback = "已导出至 \(url.lastPathComponent)"
+                case .failure(let error):
+                    self.exportFeedback = "导出失败: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     private func postPrefsChanged() {

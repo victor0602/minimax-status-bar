@@ -11,7 +11,8 @@ class NotificationService {
     static let updateActionInstall = "UPDATE_INSTALL"
     static let updateActionLater = "UPDATE_LATER"
 
-    /// Only the **primary** model (same pick order as menu bar) triggers low-quota alerts — avoids modal spam for M2.7-first workflows.
+    /// Only the **primary** model (same pick order as menu bar) triggers low-quota alerts —
+    /// avoids modal spam for M2.7-first workflows.
     private var notifiedPrimaryKey: String?
 
     private init() {}
@@ -44,7 +45,8 @@ class NotificationService {
         ) { _, _ in }
     }
 
-    /// Posts at most one update banner per version per 24h (re-check still shows ⬆ in the menu bar).
+    /// Posts at most one update banner per version per 24h
+    /// (re-check still shows ⬆ in the menu bar).
     func offerUpdateAvailable(_ release: ReleaseInfo) {
         let key = "updateNotificationSent.\(release.version)"
         if let last = UserDefaults.standard.object(forKey: key) as? Date,
@@ -70,19 +72,12 @@ class NotificationService {
 
     /// Checks primary model quota and sends notification when low.
     ///
-    /// Notification policy (三段区间业务含义):
-    /// - **< 10%**: 临界告警区 — 配额告急，发送一次性通知并记录已通知的模型 key
-    /// - **10%–19%**: 恢复观察区 — 既不发送通知也不重置标志位。设计意图：配额停在此区间时，
-    ///   若继续下跌仍能触发 <10% 的告警；若回升则进入安全区重置标志，避免"卡在 12%"导致
-    ///   用户永远收不到后续低配额提醒
-    /// - **≥ 20%**: 安全区 — 无条件清除已通知标志，配额回到充足状态
-    ///
-    /// Notification policy:
-    /// - **< 10%**: Critical - send one-time notification, remember which model was notified
-    /// - **10%–19%**: Recovery zone - clear the notified flag so a future <10% drop can re-alert.
-    ///   This prevents the "stuck at 12%" scenario where the user never gets another alert
-    ///   even after the quota eventually drops further.
-    /// - **≥ 20%**: Safe zone - clear the notified flag unconditionally
+    /// Notification policy (三段区间):
+    /// - **< threshold** (默认 10%): 临界告警区 — 配额告急，发送一次性通知并记录已通知的模型 key
+    /// - **threshold ≤ remaining < recovery** (默认 10%–20%): 恢复观察区 — 重置已通知标志。
+    ///   若配额继续下跌仍能触发 <threshold 告警；若配额回升则进入安全区再次重置，
+    ///   避免"卡在 12%"导致用户永远收不到后续低配额提醒
+    /// - **≥ recovery** (默认 ≥20%): 安全区 — 无条件清除已通知标志，配额回到充足状态
     func checkAndNotify(primary: ModelQuota?) {
         guard UserDefaults.standard.object(forKey: AppStorageKeys.lowQuotaNotificationEnabled) as? Bool ?? true else {
             return
@@ -108,6 +103,7 @@ class NotificationService {
         } else if primary.remainingPercent >= recovery {
             notifiedPrimaryKey = nil
         } else {
+            // threshold ≤ remaining < recovery: 恢复观察区，重置标志位
             if notifiedPrimaryKey == key {
                 notifiedPrimaryKey = nil
             }

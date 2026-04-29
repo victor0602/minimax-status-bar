@@ -22,6 +22,10 @@ final class StatusBarController {
     /// 刷新动画状态：0 = 无动画，1 = ↻ 帧，2 = ⟳ 帧
     private var refreshAnimationFrame: Int = 0
 
+    /// 请求代数计数器，用于检测过期响应。
+    /// 每次发起 refresh 时递增；响应回来时对比代数，若不匹配则丢弃。
+    private var currentRequestGeneration: Int = 0
+
     // MARK: - Timer Documentation
     // polling: 每 30/60/120/300 秒触发一次（用户可配置），负责自动刷新配额数据
     // updateCheck: 每 6 小时触发一次，检查 GitHub 是否有新版本发布
@@ -341,10 +345,16 @@ final class StatusBarController {
             }
         }
 
-        Task { [api] in
+        // 递增请求代数，确保后续响应与当前请求匹配
+        currentRequestGeneration += 1
+        let thisGeneration = currentRequestGeneration
+
+        Task { [api, thisGeneration] in
             defer {
                 Task { @MainActor in
-                    quotaState.isLoading = false
+                    // 仅当前代数匹配时才收尾 loading 状态，避免旧请求提前清 UI
+                    guard self.currentRequestGeneration == thisGeneration else { return }
+                    self.quotaState.isLoading = false
                     self.stopRefreshAnimation()
                     self.updateStatusBarColor()
                 }
@@ -353,14 +363,21 @@ final class StatusBarController {
             do {
                 let models = try await api.fetchQuota()
                 await MainActor.run {
+                    // 检测过期响应：如果代数不匹配，说明有更新的请求已发起，当前响应应丢弃
+                    guard self.currentRequestGeneration == thisGeneration else {
+                        #if DEBUG
+                        print("MiniMax Status Bar [DEBUG] stale response discarded (generation \(thisGeneration) vs current \(self.currentRequestGeneration))")
+                        #endif
+                        return
+                    }
                     #if DEBUG
-                    let issues = CacheConsistencyChecker.validationIssues(for: models, against: quotaState.cachedModels)
+                    let issues = CacheConsistencyChecker.validationIssues(for: models, against: self.quotaState.cachedModels)
                     if !issues.isEmpty {
                         print("MiniMax Status Bar [DEBUG] quota validation: \(issues.joined(separator: "; "))")
                     }
                     #endif
-                    quotaState.commitSuccessfulFetch(models: models)
-                    let primaryName = quotaState.primaryModel?.modelName ?? ""
+                    self.quotaState.commitSuccessfulFetch(models: models)
+                    let primaryName = self.quotaState.primaryModel?.modelName ?? ""
                     UsageHistoryRecorder.recordSnapshot(models: models, primaryModelName: primaryName)
                     self.retryCount = 0
                     self.adjustPollingInterval()
@@ -370,6 +387,8 @@ final class StatusBarController {
                 }
             } catch {
                 await MainActor.run {
+                    // 仅当前代数匹配时才处理错误（避免旧请求的错误覆盖新状态）
+                    guard self.currentRequestGeneration == thisGeneration else { return }
                     self.handleRefreshError(error)
                 }
             }
