@@ -13,14 +13,17 @@ actor UpdateService {
     }
 
     func checkForUpdate() async -> ReleaseInfo? {
-        let urlString = "https://api.github.com/repos/\(githubRepo)/releases/latest"
+        guard let trustedRepo = trustedRepoPath() else { return nil }
+        let urlString = "https://api.github.com/repos/\(trustedRepo)/releases/latest"
         guard let url = URL(string: urlString) else { return nil }
 
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 10
 
-        guard let (data, _) = try? await session.data(for: request),
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tagName = json["tag_name"] as? String else {
             return nil
@@ -34,7 +37,13 @@ actor UpdateService {
         var downloadURL: URL?
         var checksumURL: URL?
         if let assets = json["assets"] as? [[String: Any]] {
-            for asset in assets {
+            let trustedAssets = assets.filter { asset in
+                guard let urlString = asset["browser_download_url"] as? String,
+                      let assetURL = URL(string: urlString) else { return false }
+                return isTrustedGitHubAssetURL(assetURL)
+            }
+
+            for asset in trustedAssets {
                 if let urlString = asset["browser_download_url"] as? String,
                    let assetURL = URL(string: urlString),
                    assetURL.path.lowercased().hasSuffix(".dmg") {
@@ -44,7 +53,7 @@ actor UpdateService {
             }
 
             if let dmgURL = downloadURL {
-                checksumURL = Self.checksumAssetURL(for: dmgURL, in: assets)
+                checksumURL = Self.checksumAssetURL(for: dmgURL, in: trustedAssets)
             }
         }
 
@@ -110,10 +119,35 @@ actor UpdateService {
         return nil
     }
 
+    private func isTrustedGitHubAssetURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased(), host == "github.com" else {
+            return false
+        }
+        let path = url.path.lowercased()
+        guard let trustedRepo = trustedRepoPath()?.lowercased() else { return false }
+        let repoPath = "/" + trustedRepo
+        return path.hasPrefix(repoPath + "/releases/download/")
+    }
+
+    private func trustedRepoPath() -> String? {
+        let repo = githubRepo.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = repo.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+        for part in parts {
+            let text = String(part)
+            guard !text.isEmpty else { return nil }
+            guard text.rangeOfCharacter(from: allowed.inverted) == nil else { return nil }
+        }
+        return repo
+    }
+
     private func fetchChecksum(from url: URL, matching fileName: String) async -> String? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        guard let (data, _) = try? await session.data(for: request),
+        guard let (data, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
               let text = String(data: data, encoding: .utf8) else {
             return nil
         }
@@ -128,6 +162,11 @@ actor UpdateService {
                     return checksum
                 }
             }
+            let nonEmptyLines = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            if nonEmptyLines.count == 1 {
+                return firstSHA256Hex(in: nonEmptyLines[0])
+            }
+            return nil
         }
 
         return firstSHA256Hex(in: text)

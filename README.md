@@ -24,25 +24,25 @@
 
 ---
 
-## v1.1 Release Notes / 正式版更新
+## v1.2 Release Notes / 正式版更新
 
 ### English
 
-- Added manual API key persistence to local macOS Keychain (`Save and Use` flow)
-- Improved setup guidance interaction feedback (button press state + action result text)
-- Added API key management in Settings (`Clear local Keychain key`)
-- Added explicit logout behavior: clearing saved key now cuts off quota session until user retries detection or saves key again
-- Synced externally detected keys (environment / OpenClaw files) into Keychain for stable follow-up sessions
-- Refined first-run behavior: when key is missing, setup guidance is shown without quota cards
+- Hardened in-app update integrity checks (code signature validity, Team ID consistency, semantic version match)
+- Tightened release asset trust policy (repository path whitelist + strict `github.com` domain validation)
+- Enforced HTTP status checks (`200`) for update metadata and checksum fetches
+- Improved SHA256 parsing safety by rejecting ambiguous non-matching checksum lines
+- Updated API key persistence behavior: only valid Token Plan keys are written into local Keychain
+- Expanded regression coverage for update security and key persistence edge cases
 
 ### 中文
 
-- 新增手动 API Key 本地持久化（保存到 macOS Keychain，支持“保存并使用”）
-- 优化首次引导交互反馈（按钮按下态与操作结果提示）
-- 设置页新增密钥管理（支持“清除本机 Keychain 密钥”）
-- 新增显式登出语义：清除保存密钥后立即切断配额会话，需用户主动重新检测或重新保存密钥
-- 外部来源密钥（环境变量 / OpenClaw 文件）在检测到后会自动同步到 Keychain，提升后续稳定性
-- 首次无密钥场景优化：仅展示引导，不再混显配额卡片
+- 强化应用内更新完整性校验（代码签名有效性、Team ID 一致性、语义版本一致性）
+- 收紧发布资产信任策略（仓库路径白名单 + 严格 `github.com` 域名校验）
+- 更新元数据与校验文件下载统一要求 HTTP `200` 响应
+- 优化 SHA256 解析安全性，拒绝模糊且不匹配文件名的校验行
+- 调整 API Key 持久化策略：仅合法 Token Plan Key 才写入本机 Keychain
+- 补充更新安全与密钥持久化边界场景回归测试
 
 ---
 

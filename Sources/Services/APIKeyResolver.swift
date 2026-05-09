@@ -14,6 +14,13 @@ enum APIKeyResolver {
     /// Minimum length for a valid API key (prefix + content)
     private static let minimumKeyLength = 40
 
+    /// Persists key only when it passes Token Plan validation.
+    private static func persistIfValid(_ key: String, keychainSave: (String) -> Bool) {
+        if validateForQuotaAPI(key) == .valid {
+            _ = keychainSave(key)
+        }
+    }
+
     static func resolve(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default,
@@ -22,7 +29,7 @@ enum APIKeyResolver {
         keychainSave: (String) -> Bool = APIKeyKeychainStore.save
     ) -> String {
         if let key = environment["MINIMAX_API_KEY"], !key.isEmpty {
-            _ = keychainSave(key)
+            persistIfValid(key, keychainSave: keychainSave)
             return key
         }
 
@@ -30,14 +37,14 @@ enum APIKeyResolver {
         let envPath = home.appendingPathComponent(".openclaw/.env")
         if let content = try? String(contentsOf: envPath, encoding: .utf8),
            let key = minimaxKey(fromOpenClawEnv: content) {
-            _ = keychainSave(key)
+            persistIfValid(key, keychainSave: keychainSave)
             return key
         }
 
         let jsonPath = home.appendingPathComponent(".openclaw/openclaw.json")
         if let data = try? Data(contentsOf: jsonPath),
            let key = minimaxKey(fromOpenClawJSONData: data), !key.isEmpty {
-            _ = keychainSave(key)
+            persistIfValid(key, keychainSave: keychainSave)
             return key
         }
 

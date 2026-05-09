@@ -3,26 +3,42 @@ import XCTest
 
 final class APIKeyResolverTests: XCTestCase {
     func testResolveUsesEnvironmentVariableFirst() {
+        let envKey = String(repeating: "a", count: 34)
         let key = APIKeyResolver.resolve(
-            environment: ["MINIMAX_API_KEY": "sk-cp-from-env"],
+            environment: ["MINIMAX_API_KEY": "sk-cp-\(envKey)"],
             keychainLoad: { nil },
             keychainSave: { _ in true }
         )
-        XCTAssertEqual(key, "sk-cp-from-env")
+        XCTAssertEqual(key, "sk-cp-\(envKey)")
     }
 
     func testResolveSyncsEnvironmentKeyToKeychain() {
         var savedKey: String?
+        let envKey = String(repeating: "b", count: 34)
         let resolved = APIKeyResolver.resolve(
-            environment: ["MINIMAX_API_KEY": "sk-cp-sync-me"],
+            environment: ["MINIMAX_API_KEY": "sk-cp-\(envKey)"],
             keychainLoad: { nil },
             keychainSave: { key in
                 savedKey = key
                 return true
             }
         )
-        XCTAssertEqual(resolved, "sk-cp-sync-me")
-        XCTAssertEqual(savedKey, "sk-cp-sync-me")
+        XCTAssertEqual(resolved, "sk-cp-\(envKey)")
+        XCTAssertEqual(savedKey, "sk-cp-\(envKey)")
+    }
+
+    func testResolveDoesNotSyncInvalidEnvironmentKeyToKeychain() {
+        var savedKey: String?
+        let resolved = APIKeyResolver.resolve(
+            environment: ["MINIMAX_API_KEY": "sk-short"],
+            keychainLoad: { nil },
+            keychainSave: { key in
+                savedKey = key
+                return true
+            }
+        )
+        XCTAssertEqual(resolved, "sk-short")
+        XCTAssertNil(savedKey)
     }
 
     func testMinimaxKeyFromOpenClawEnvStripsQuotes() {

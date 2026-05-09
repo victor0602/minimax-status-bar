@@ -105,6 +105,38 @@ final class UpdateServiceTests: XCTestCase {
         XCTAssertEqual(release?.downloadURL.lastPathComponent, "MiniMaxStatusBar.dmg")
     }
 
+    func testCheckForUpdateIgnoresUntrustedAssetURLs() async {
+        let expectedSHA256 = String(repeating: "e", count: 64)
+        let session = makeSession()
+
+        MockURLProtocol.requestHandler = { req in
+            let url = req.url!
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            if url.path.hasSuffix("/releases/latest") {
+                let payload = """
+                {
+                  "tag_name": "v99.0.0",
+                  "body": "",
+                  "assets": [
+                    { "browser_download_url": "https://github.com/evil/repo/releases/download/v99.0.0/Bad.dmg" },
+                    { "browser_download_url": "https://github.com/openclaw/minimax-status-bar/releases/download/v99.0.0/MiniMaxStatusBar.dmg" },
+                    { "browser_download_url": "https://github.com/openclaw/minimax-status-bar/releases/download/v99.0.0/MiniMaxStatusBar.dmg.sha256" }
+                  ]
+                }
+                """.data(using: .utf8)!
+                return (response, payload)
+            }
+            return (response, Data("\(expectedSHA256)  MiniMaxStatusBar.dmg\n".utf8))
+        }
+
+        let service = UpdateService(githubRepo: "openclaw/minimax-status-bar", session: session)
+        let release = await service.checkForUpdate()
+
+        XCTAssertEqual(release?.downloadURL.host, "github.com")
+        XCTAssertTrue(release?.downloadURL.path.contains("/openclaw/minimax-status-bar/releases/download/") ?? false)
+        XCTAssertEqual(release?.expectedSHA256, expectedSHA256)
+    }
+
     func testCheckForUpdateRejectsReleaseWithoutSHA256() async {
         let session = makeSession()
 
@@ -129,6 +161,33 @@ final class UpdateServiceTests: XCTestCase {
         XCTAssertNil(release)
     }
 
+    func testCheckForUpdateRejectsInvalidRepoPath() async {
+        let session = makeSession()
+        MockURLProtocol.requestHandler = { _ in
+            XCTFail("should not make network request for invalid repo path")
+            let dummyURL = URL(string: "https://api.github.com")!
+            let response = HTTPURLResponse(url: dummyURL, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+
+        let service = UpdateService(githubRepo: "openclaw/minimax-status-bar/extra", session: session)
+        let release = await service.checkForUpdate()
+        XCTAssertNil(release)
+    }
+
+    func testCheckForUpdateRejectsNon200ReleaseResponse() async {
+        let session = makeSession()
+        MockURLProtocol.requestHandler = { req in
+            let url = req.url!
+            let response = HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)!
+            return (response, Data("{\"tag_name\":\"v99.0.0\"}".utf8))
+        }
+
+        let service = UpdateService(githubRepo: "openclaw/minimax-status-bar", session: session)
+        let release = await service.checkForUpdate()
+        XCTAssertNil(release)
+    }
+
     func testSHA256ChecksumExtractsMatchingDmgLine() {
         let expected = String(repeating: "b", count: 64)
         let other = String(repeating: "c", count: 64)
@@ -141,6 +200,16 @@ final class UpdateServiceTests: XCTestCase {
             UpdateService.sha256Checksum(in: text, matching: "MiniMaxStatusBar.dmg"),
             expected
         )
+    }
+
+    func testSHA256ChecksumReturnsNilWhenNoMatchingFileLine() {
+        let expected = String(repeating: "b", count: 64)
+        let other = String(repeating: "c", count: 64)
+        let text = """
+        \(other)  Other.dmg
+        \(expected)  Another.dmg
+        """
+        XCTAssertNil(UpdateService.sha256Checksum(in: text, matching: "MiniMaxStatusBar.dmg"))
     }
 
     func testVerifyDownloadedFileRejectsChecksumMismatch() throws {
@@ -159,6 +228,26 @@ final class UpdateServiceTests: XCTestCase {
         let result = UpdateIntegrityChecker.verifyDownloadedFile(release: release, fileURL: fileURL)
         guard case .checksumMismatch = result else {
             XCTFail("expected checksumMismatch, got \(result)")
+            return
+        }
+    }
+
+    func testVerifyDownloadedFileRejectsNonGithubDomain() throws {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MiniMaxStatusBar-\(UUID().uuidString).dmg")
+        try Data("mock".utf8).write(to: fileURL)
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let release = ReleaseInfo(
+            version: "99.0.0",
+            downloadURL: URL(string: "https://downloads.github.com.evil.example/v99.0.0/MiniMaxStatusBar.dmg")!,
+            expectedSHA256: String(repeating: "d", count: 64),
+            releaseNotes: ""
+        )
+
+        let result = UpdateIntegrityChecker.verifyDownloadedFile(release: release, fileURL: fileURL)
+        guard case .invalidDomain = result else {
+            XCTFail("expected invalidDomain, got \(result)")
             return
         }
     }

@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Security
 
 struct ReleaseInfo: Sendable {
     let version: String
@@ -34,6 +35,8 @@ enum UpdateIntegrityResult {
     case checksumMismatch(expected: String, actual: String)
     case invalidBundleIdentifier(String)
     case invalidVersion(String, String)
+    case invalidTeamIdentifier(String, String)
+    case invalidCodeSignature
     case verificationFailed(String)
 
     var isValid: Bool {
@@ -57,6 +60,10 @@ enum UpdateIntegrityResult {
             return "Bundle ID 不匹配：\(id)"
         case .invalidVersion(let expected, let actual):
             return "版本号不匹配：预期 \(expected)，实际 \(actual)"
+        case .invalidTeamIdentifier(let expected, let actual):
+            return "签名 Team ID 不匹配：预期 \(expected)，实际 \(actual)"
+        case .invalidCodeSignature:
+            return "下载应用代码签名无效"
         case .verificationFailed(let reason):
             return "校验失败：\(reason)"
         }
@@ -65,11 +72,52 @@ enum UpdateIntegrityResult {
 
 /// 更新包完整性校验器
 enum UpdateIntegrityChecker {
+    private static func createStaticCode(bundlePath: String) -> SecStaticCode? {
+        var code: SecStaticCode?
+        let status = SecStaticCodeCreateWithPath(URL(fileURLWithPath: bundlePath) as CFURL, [], &code)
+        guard status == errSecSuccess else { return nil }
+        return code
+    }
+
+    private static func normalizedVersionParts(_ version: String) -> [Int] {
+        version
+            .replacingOccurrences(of: "v", with: "", options: .caseInsensitive)
+            .split(separator: ".")
+            .compactMap { Int($0) }
+    }
+
+    private static func versionsEquivalent(_ lhs: String, _ rhs: String) -> Bool {
+        let lp = normalizedVersionParts(lhs)
+        let rp = normalizedVersionParts(rhs)
+        let count = max(lp.count, rp.count)
+        let a = lp + Array(repeating: 0, count: count - lp.count)
+        let b = rp + Array(repeating: 0, count: count - rp.count)
+        return a == b
+    }
+
+    private static func copyTeamIdentifier(from bundlePath: String) -> String? {
+        guard let staticCode = createStaticCode(bundlePath: bundlePath) else { return nil }
+        var signingInfoRef: CFDictionary?
+        let flags = SecCSFlags(rawValue: kSecCSSigningInformation)
+        let status = SecCodeCopySigningInformation(staticCode, flags, &signingInfoRef)
+        guard status == errSecSuccess,
+              let signingInfo = signingInfoRef as? [String: Any],
+              let teamID = signingInfo[kSecCodeInfoTeamIdentifier as String] as? String,
+              !teamID.isEmpty else {
+            return nil
+        }
+        return teamID
+    }
+
+    private static func hasValidCodeSignature(bundlePath: String) -> Bool {
+        guard let staticCode = createStaticCode(bundlePath: bundlePath) else { return false }
+        return SecStaticCodeCheckValidity(staticCode, SecCSFlags(), nil) == errSecSuccess
+    }
     /// 校验下载文件：来源、文件名和 SHA256 必须全部匹配。
     static func verifyDownloadedFile(release: ReleaseInfo, fileURL: URL) -> UpdateIntegrityResult {
         // 1. 校验下载域名（只允许 github.com）
         let downloadHost = release.downloadHost.lowercased()
-        guard downloadHost == "github.com" || downloadHost.hasSuffix(".github.com") else {
+        guard downloadHost == "github.com" else {
             return .invalidDomain(release.downloadHost)
         }
 
@@ -98,6 +146,10 @@ enum UpdateIntegrityChecker {
 
     /// 校验版本一致性：ReleaseInfo.version 必须与下载的 DMG bundle 版本一致
     static func verifyMountedBundle(release: ReleaseInfo, downloadedBundlePath: String) -> UpdateIntegrityResult {
+        guard hasValidCodeSignature(bundlePath: downloadedBundlePath) else {
+            return .invalidCodeSignature
+        }
+
         // 1. 校验 bundle identifier
         guard let bundle = Bundle(path: downloadedBundlePath),
               bundle.bundleIdentifier == release.expectedBundleIdentifier else {
@@ -105,9 +157,17 @@ enum UpdateIntegrityChecker {
             return .invalidBundleIdentifier(actualId)
         }
 
-        // 2. 校验版本号
+        // 2. 校验 Team Identifier（若当前运行应用可解析 Team ID）
+        let currentBundlePath = Bundle.main.bundlePath
+        if let expectedTeamID = copyTeamIdentifier(from: currentBundlePath),
+           let downloadedTeamID = copyTeamIdentifier(from: downloadedBundlePath),
+           expectedTeamID != downloadedTeamID {
+            return .invalidTeamIdentifier(expectedTeamID, downloadedTeamID)
+        }
+
+        // 3. 校验版本号（语义等价：2.0 == 2.0.0）
         guard let bundleVersion = bundle.infoDictionary?["CFBundleShortVersionString"] as? String,
-              bundleVersion == release.version else {
+              versionsEquivalent(bundleVersion, release.version) else {
             let actualVersion = Bundle(path: downloadedBundlePath)?
                 .infoDictionary?["CFBundleShortVersionString"] as? String ?? "nil"
             return .invalidVersion(release.version, actualVersion)
