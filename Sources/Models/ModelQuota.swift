@@ -219,15 +219,19 @@ struct ModelQuota {
 
     /// 配额明细用分组整数，避免 `formatCountForDisplay` 的 1 位 K 舍入把 29,951 与 30,000 都显示成「30.0K」，
     /// 从而与 `remainingPercent`（按精确 remaining/total 整数除法）不一致。
-    private static let quotaDetailFormatter: NumberFormatter = {
+    private static let _quotaDetailFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
         return f
     }()
+    private static let formatterLock = NSLock()
 
     static func formatCountForQuotaDetail(_ num: Int) -> String {
-        quotaDetailFormatter.string(from: NSNumber(value: num)) ?? "\(num)"
+        formatterLock.lock()
+        let result = _quotaDetailFormatter.string(from: NSNumber(value: num)) ?? "\(num)"
+        formatterLock.unlock()
+        return result
     }
 
     /// Remains time that decreases in real-time based on elapsed seconds since fetch
@@ -256,33 +260,33 @@ struct ModelQuota {
     var displayName: String {
         switch modelName.lowercased() {
         case let n where n.contains("coding-plan-search"):
-            return "联网搜索"
+            return "网络搜索"
         case let n where n.contains("coding-plan-vlm"):
-            return "图像识别"
+            return "图片理解"
         case let n where n.contains("m2.7"):
-            return "MiniMax M2.7"
+            return "文本生成"
         case let n where n.contains("minimax-m"):
-            return "MiniMax-M"
+            return "文本生成"
         case let n where n.contains("speech-hd"):
-            return "Text to Speech HD"
+            return "语音合成 · HD（高保真）"
         case let n where n.contains("hailuo-2.3-fast"):
-            return "Hailuo-2.3-Fast"
+            return "视频生成 · 高速版（768P / 6s）"
         case let n where n.contains("hailuo-2.3"):
-            return "Hailuo-2.3"
+            return "视频生成 · 标准版（768P / 6s）"
         case let n where n.contains("music-2.5"):
-            return "Music 2.5"
+            return "音乐生成 · v2.5"
         case let n where n.contains("music-2.6"):
-            return "Music 2.6"
+            return "音乐生成 · v2.6"
         case let n where n.contains("music-cover"):
-            return "Music Cover"
+            return "音乐翻唱"
         case let n where n.contains("lyrics_generation"):
-            return modelName  // 歌词创作显示原模型名称
+            return "歌词生成"
         case let n where n.contains("music"):
-            return "Music"
+            return "音乐生成"
         case let n where n.contains("image-01"):
-            return "Image 01"
+            return "图像生成"
         case let n where n.contains("image"):
-            return "Image"
+            return "图像生成"
         default:
             return modelName
         }

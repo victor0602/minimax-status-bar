@@ -283,7 +283,16 @@ final class StatusBarController {
 
     private func rebuildAPIService() {
         let key = Self.resolvedAPIKey()
-        let validation = APIKeyService.validateForQuotaAPI(key)
+        applyAPIKeyValidationResult(validation: APIKeyService.validateForQuotaAPI(key), key: key)
+    }
+
+    private func attemptBindAPIServiceIfNeeded() {
+        guard apiService == nil else { return }
+        let key = Self.resolvedAPIKey()
+        applyAPIKeyValidationResult(validation: APIKeyService.validateForQuotaAPI(key), key: key)
+    }
+
+    private func applyAPIKeyValidationResult(validation: APIKeyValidationResult, key: String) {
         switch validation {
         case .valid:
             quotaState.setupReason = nil
@@ -310,21 +319,6 @@ final class StatusBarController {
     private func restartPollingFromUserDefaults() {
         guard apiService != nil else { return }
         adjustPollingInterval()
-    }
-
-    private func attemptBindAPIServiceIfNeeded() {
-        guard apiService == nil else { return }
-        let key = Self.resolvedAPIKey()
-        let validation = APIKeyService.validateForQuotaAPI(key)
-        switch validation {
-        case .valid:
-            quotaState.setupReason = nil
-            apiService = MiniMaxAPIService(apiKey: key)
-        case .missing:
-            quotaState.setupReason = .missingAPIKey
-        case .nonTokenPlanKey, .invalidFormat:
-            quotaState.setupReason = .invalidTokenPlanKeyFormat
-        }
     }
 
     private func refresh() {
@@ -461,10 +455,12 @@ final class StatusBarController {
         let hint = " · 可更新 v\(release.version)"
         if button.title.trimmingCharacters(in: .whitespaces).isEmpty {
             button.title = "⬆"
-        } else {
+        } else if !button.title.contains("⬆") {
             button.title = (button.title) + " ⬆"
         }
-        button.toolTip = (button.toolTip ?? "") + hint
+        if !(button.toolTip ?? "").contains(hint) {
+            button.toolTip = (button.toolTip ?? "") + hint
+        }
     }
 
     private func updateStatusBarColor() {

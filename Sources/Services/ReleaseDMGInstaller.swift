@@ -132,9 +132,17 @@ enum ReleaseDMGInstaller {
         set dst to "\(dst)"
         do shell script "/usr/bin/rsync -a --delete " & quoted form of src & " " & quoted form of dst with administrator privileges
         """
-        var errorDict: NSDictionary?
-        NSAppleScript(source: source)?.executeAndReturnError(&errorDict)
-        return errorDict == nil
+        if Thread.isMainThread {
+            var errorDict: NSDictionary?
+            NSAppleScript(source: source)?.executeAndReturnError(&errorDict)
+            return errorDict == nil
+        } else {
+            return DispatchQueue.main.sync {
+                var errorDict: NSDictionary?
+                NSAppleScript(source: source)?.executeAndReturnError(&errorDict)
+                return errorDict == nil
+            }
+        }
     }
 
     private static func escapeForAppleScriptString(_ s: String) -> String {

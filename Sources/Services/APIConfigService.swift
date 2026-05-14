@@ -36,22 +36,6 @@ final class APIConfigService {
 
     private init() {}
 
-    /// 当前 API 配置
-    var currentConfig: APIRequestConfig {
-        get {
-            let timeout = defaults.double(forKey: timeoutKey)
-            let enableID = defaults.bool(forKey: enableRequestIDKey)
-            return APIRequestConfig(
-                timeoutInterval: timeout > 0 ? timeout : 30,
-                enableRequestID: enableID
-            )
-        }
-        set {
-            defaults.set(newValue.timeoutInterval, forKey: timeoutKey)
-            defaults.set(newValue.enableRequestID, forKey: enableRequestIDKey)
-        }
-    }
-
     /// 超时时间（秒）
     var timeoutInterval: TimeInterval {
         get {

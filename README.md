@@ -24,25 +24,29 @@
 
 ---
 
-## v1.2 Release Notes / 正式版更新
+## v1.3 Release Notes / 正式版更新
 
 ### English
 
-- Hardened in-app update integrity checks (code signature validity, Team ID consistency, semantic version match)
-- Tightened release asset trust policy (repository path whitelist + strict `github.com` domain validation)
-- Enforced HTTP status checks (`200`) for update metadata and checksum fetches
-- Improved SHA256 parsing safety by rejecting ambiguous non-matching checksum lines
-- Updated API key persistence behavior: only valid Token Plan keys are written into local Keychain
-- Expanded regression coverage for update security and key persistence edge cases
+- Migrated model display names to Chinese product labels for clarity (e.g., `MiniMax-M2.7` → `文本生成`, `hailuo-2.3` → `视频生成 · 标准版`)
+- Fixed production-level thread safety issues: `NumberFormatter`/`DateFormatter` locked, blocking shell calls moved off `@MainActor`
+- Fixed menu bar tooltip accumulation bug and added deduplication check
+- Eliminated duplicate API service creation logic in `StatusBarController`
+- Removed redundant `#available` checks (deployment target macOS 13.0)
+- Cleaned up dead code in `APIConfigService`
+- Added comprehensive regression test for all 13 display name mappings
+- All 93 unit tests pass with 0 failures
 
 ### 中文
 
-- 强化应用内更新完整性校验（代码签名有效性、Team ID 一致性、语义版本一致性）
-- 收紧发布资产信任策略（仓库路径白名单 + 严格 `github.com` 域名校验）
-- 更新元数据与校验文件下载统一要求 HTTP `200` 响应
-- 优化 SHA256 解析安全性，拒绝模糊且不匹配文件名的校验行
-- 调整 API Key 持久化策略：仅合法 Token Plan Key 才写入本机 Keychain
-- 补充更新安全与密钥持久化边界场景回归测试
+- 模型展示名称迁移为中文业务标签（如 `MiniMax-M2.7` → `文本生成`、`hailuo-2.3` → `视频生成 · 标准版`）
+- 修复多线程安全问题：NumberFormatter/DateFormer 加锁保护、阻塞 shell 调用移出 @MainActor
+- 修复菜单栏 tooltip 累积 bug，增加重复检测
+- 消除 StatusBarController 中重复的 API Service 创建逻辑
+- 删除冗余 `#available` 检查（部署目标已为 macOS 13.0）
+- 清理 APIConfigService 死代码
+- 补充全量 13 条 display name 映射回归测试
+- 全部 93 个单元测试通过，0 失败
 
 ---
 

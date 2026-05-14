@@ -44,7 +44,6 @@ final class UpdateState: ObservableObject {
         }
     }
 
-    @MainActor
     private func performFullUpdate(release: ReleaseInfo) async {
         let tmpDMG = FileManager.default.temporaryDirectory.appendingPathComponent("MiniMaxStatusBarUpdate.dmg")
         try? FileManager.default.removeItem(at: tmpDMG)
@@ -54,70 +53,87 @@ final class UpdateState: ObservableObject {
                 from: release.downloadURL,
                 to: tmpDMG,
                 progress: { [weak self] value in
-                    self?.downloadProgress = value
+                    Task { @MainActor in
+                        self?.downloadProgress = value
+                    }
                 },
                 sessionCreated: { [weak self] session in
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         self?.currentSession = session
                     }
                 },
                 onDownloadComplete: { [weak self] in
-                    DispatchQueue.main.async {
+                    Task { @MainActor in
                         self?.currentSession?.invalidateAndCancel()
                         self?.currentSession = nil
                     }
                 }
             )
         } catch {
-            lastError = "下载失败: \(error.localizedDescription)"
-            isDownloading = false
-            currentSession?.invalidateAndCancel()
-            currentSession = nil
+            await MainActor.run {
+                lastError = "下载失败: \(error.localizedDescription)"
+                isDownloading = false
+                currentSession?.invalidateAndCancel()
+                currentSession = nil
+            }
             return
         }
 
-        // 完整性校验
-        installPhase = "验证中"
+        await MainActor.run { installPhase = "验证中" }
         let downloadedFileResult = UpdateIntegrityChecker.verifyDownloadedFile(release: release, fileURL: tmpDMG)
         guard downloadedFileResult.isValid else {
-            lastError = "更新包校验失败：\(downloadedFileResult.errorDescription ?? "未知错误")"
-            isDownloading = false
+            await MainActor.run {
+                lastError = "更新包校验失败：\(downloadedFileResult.errorDescription ?? "未知错误")"
+                isDownloading = false
+            }
             try? FileManager.default.removeItem(at: tmpDMG)
             return
         }
 
         let mountPoint = "/tmp/MiniMaxStatusBarMount.\(UUID().uuidString)"
-        let mountedBundleResult = runMountAndVerify(release: release, dmgPath: tmpDMG.path, mountPoint: mountPoint)
+
+        // Run blocking shell operations off the main actor
+        let mountedBundleResult = await Task.detached { [release, tmpDMG, mountPoint] in
+            Self.runMountAndVerify(release: release, dmgPath: tmpDMG.path, mountPoint: mountPoint)
+        }.value
 
         if mountedBundleResult.isValid {
-            installPhase = "安装中"
+            await MainActor.run { installPhase = "安装中" }
             do {
-                try ReleaseDMGInstaller.install(
-                    dmgURL: tmpDMG,
-                    mountPoint: mountPoint,
-                    mountedAppName: "MiniMax Status Bar.app",
-                    targetBundlePath: Bundle.main.bundlePath
-                )
+                try await Task.detached { [tmpDMG, mountPoint, release] in
+                    try ReleaseDMGInstaller.install(
+                        dmgURL: tmpDMG,
+                        mountPoint: mountPoint,
+                        mountedAppName: "MiniMax Status Bar.app",
+                        targetBundlePath: Bundle.main.bundlePath
+                    )
+                }.value
             } catch ReleaseInstallError.mountFailed {
-                lastError = "挂载更新包失败"
-                isDownloading = false
-                cleanupMountPoint(mountPoint)
+                await MainActor.run {
+                    lastError = "挂载更新包失败"
+                    isDownloading = false
+                }
+                await Self.cleanupMountPoint(mountPoint)
                 return
             } catch {
-                lastError = "安装失败，请检查权限"
-                isDownloading = false
-                cleanupMountPoint(mountPoint)
+                await MainActor.run {
+                    lastError = "安装失败，请检查权限"
+                    isDownloading = false
+                }
+                await Self.cleanupMountPoint(mountPoint)
                 return
             }
         } else {
-            lastError = "更新包校验失败：\(mountedBundleResult.errorDescription ?? "未知错误")"
-            isDownloading = false
-            cleanupMountPoint(mountPoint)
+            await MainActor.run {
+                lastError = "更新包校验失败：\(mountedBundleResult.errorDescription ?? "未知错误")"
+                isDownloading = false
+            }
+            await Self.cleanupMountPoint(mountPoint)
             return
         }
 
-        cleanupMountPoint(mountPoint)
-        installPhase = "重启中"
+        await Self.cleanupMountPoint(mountPoint)
+        await MainActor.run { installPhase = "重启中" }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             let appPath = Bundle.main.bundlePath
@@ -126,7 +142,7 @@ final class UpdateState: ObservableObject {
         }
     }
 
-    private func runMountAndVerify(release: ReleaseInfo, dmgPath: String, mountPoint: String) -> UpdateIntegrityResult {
+    private static func runMountAndVerify(release: ReleaseInfo, dmgPath: String, mountPoint: String) -> UpdateIntegrityResult {
         let hdiutil = "/usr/bin/hdiutil"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: hdiutil)
@@ -144,7 +160,7 @@ final class UpdateState: ObservableObject {
         }
 
         defer {
-            _ = run(executable: hdiutil, arguments: ["detach", mountPoint, "-quiet"])
+            _ = Self.run(executable: hdiutil, arguments: ["detach", mountPoint, "-quiet"])
         }
 
         let mountedAppPath = (mountPoint as NSString).appendingPathComponent("MiniMax Status Bar.app")
@@ -159,7 +175,7 @@ final class UpdateState: ObservableObject {
         return result
     }
 
-    private func run(executable: String, arguments: [String]) -> Int32 {
+    private static func run(executable: String, arguments: [String]) -> Int32 {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -172,11 +188,14 @@ final class UpdateState: ObservableObject {
         }
     }
 
-    private func cleanupMountPoint(_ mountPoint: String) {
-        _ = run(executable: "/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"])
+    private static func cleanupMountPoint(_ mountPoint: String) async {
+        await Task.detached {
+            _ = Self.run(executable: "/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"])
+        }.value
         try? FileManager.default.removeItem(atPath: mountPoint)
     }
 
+    @MainActor
     func cancelDownload() {
         currentSession?.invalidateAndCancel()
         currentSession = nil

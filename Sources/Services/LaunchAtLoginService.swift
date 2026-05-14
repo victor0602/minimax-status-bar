@@ -3,21 +3,12 @@ import ServiceManagement
 
 class LaunchAtLoginService {
     static var isEnabled: Bool {
-        get {
-            if #available(macOS 13.0, *) {
-                return SMAppService.mainApp.status == .enabled
-            }
-            return UserDefaults.standard.bool(forKey: "launchAtLogin")
-        }
+        get { SMAppService.mainApp.status == .enabled }
         set {
-            if #available(macOS 13.0, *) {
-                if newValue {
-                    try? SMAppService.mainApp.register()
-                } else {
-                    try? SMAppService.mainApp.unregister()
-                }
+            if newValue {
+                try? SMAppService.mainApp.register()
             } else {
-                UserDefaults.standard.set(newValue, forKey: "launchAtLogin")
+                try? SMAppService.mainApp.unregister()
             }
         }
     }

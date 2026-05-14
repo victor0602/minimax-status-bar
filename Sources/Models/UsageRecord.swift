@@ -58,6 +58,15 @@ private let monthNameFormatter: DateFormatter = {
     return f
 }()
 
+private let formatterLock = NSLock()
+
+private func lockedDateFormatterResult(_ formatter: DateFormatter, block: (DateFormatter) -> String) -> String {
+    formatterLock.lock()
+    let result = block(formatter)
+    formatterLock.unlock()
+    return result
+}
+
 /// 每日用量记录
 struct DailyUsageRecord: Codable, Identifiable {
     var id: String { dateKey }
@@ -72,12 +81,12 @@ struct DailyUsageRecord: Codable, Identifiable {
     
     /// 日期字符串键，格式 "yyyy-MM-dd"
     var dateKey: String {
-        dateKeyFormatter.string(from: date)
+        lockedDateFormatterResult(dateKeyFormatter) { $0.string(from: date) }
     }
     
     /// 格式化日期显示
     var formattedDate: String {
-        shortDateFormatter.string(from: date)
+        lockedDateFormatterResult(shortDateFormatter) { $0.string(from: date) }
     }
     
     /// 主力模型已用量
@@ -112,7 +121,9 @@ struct WeeklyAggregation: Identifiable {
     
     /// 周标签显示
     var weekLabel: String {
-        "\(shortDateFormatter.string(from: weekStartDate))-\(shortDateFormatter.string(from: weekEndDate))"
+        lockedDateFormatterResult(shortDateFormatter) { fmt in
+            "\(fmt.string(from: weekStartDate))-\(fmt.string(from: weekEndDate))"
+        }
     }
     
     /// 从日记录聚合
@@ -142,7 +153,7 @@ struct WeeklyAggregation: Identifiable {
         let primaryModel = modelTotals.max { $0.value < $1.value }?.key ?? ""
         let primaryConsumed = modelTotals[primaryModel] ?? 0
         
-        let weekKey = weekKeyFormatter.string(from: weekStart)
+        let weekKey = lockedDateFormatterResult(weekKeyFormatter) { $0.string(from: weekStart) }
         
         return WeeklyAggregation(
             weekStartDate: weekStart,
@@ -163,10 +174,12 @@ struct MonthlyAggregation: Identifiable {
     let yearMonth: String
     /// 月份名称
     var monthName: String {
-        if let date = monthKeyFormatter.date(from: yearMonth) {
-            return monthNameFormatter.string(from: date)
+        lockedDateFormatterResult(monthKeyFormatter) { fmt in
+            if let date = fmt.date(from: yearMonth) {
+                return lockedDateFormatterResult(monthNameFormatter) { $0.string(from: date) }
+            }
+            return yearMonth
         }
-        return yearMonth
     }
     /// 总已消耗量
     let totalConsumed: Int
@@ -188,8 +201,10 @@ struct MonthlyAggregation: Identifiable {
         guard !records.isEmpty else { return nil }
         
         // 按月分组
-        let monthKey = monthKeyFormatter.string(from: records[0].date)
-        let monthRecords = records.filter { monthKeyFormatter.string(from: $0.date) == monthKey }
+        let monthKey = lockedDateFormatterResult(monthKeyFormatter) { $0.string(from: records[0].date) }
+        let monthRecords = records.filter { rec in
+            lockedDateFormatterResult(monthKeyFormatter) { fmt in fmt.string(from: rec.date) } == monthKey
+        }
         
         let totalConsumed = monthRecords.reduce(0) { $0 + $1.totalConsumed }
         

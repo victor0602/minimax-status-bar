@@ -101,8 +101,11 @@ struct SettingsView: View {
                 settingsCard(title: "通知与启动", icon: "bell.badge") {
                     VStack(spacing: 10) {
                         toggleRow("低配额系统通知", isOn: $lowQuotaNotification)
+                            .onChange(of: lowQuotaNotification) { _ in postPrefsChanged() }
                         stepperRow("提醒阈值", value: $lowQuotaThreshold, range: 5...40)
+                            .onChange(of: lowQuotaThreshold) { _ in postPrefsChanged() }
                         stepperRow("恢复阈值", value: $lowQuotaRecover, range: 10...90)
+                            .onChange(of: lowQuotaRecover) { _ in postPrefsChanged() }
                         toggleRow("自动下载并安装更新", isOn: $autoUpdate)
                         toggleRow("登录时启动", isOn: Binding(
                             get: { LaunchAtLoginService.isEnabled },
