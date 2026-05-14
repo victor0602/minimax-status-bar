@@ -24,6 +24,22 @@
 
 ---
 
+## v1.3.1 Release Notes / 正式版更新
+
+### English
+
+- Extended API key detection: `openclaw.json` MCP server env sections (`mcp.servers.*.env.MINIMAX_API_KEY`) are now scanned for Token Plan keys
+- Added `~/.openclaw/.env` file support for users who store API key there
+- Added regression tests for MCP server env key resolution path
+
+### 中文
+
+- 扩展 API Key 检测路径：支持从 `openclaw.json` 的 `mcp.servers.*.env.MINIMAX_API_KEY` 读取密钥
+- 补充 `~/.openclaw/.env` 文件支持
+- 新增 MCP server 环境变量场景的回归测试
+
+---
+
 ## v1.3 Release Notes / 正式版更新
 
 ### English

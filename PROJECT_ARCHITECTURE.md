@@ -14,7 +14,7 @@
 | **技术栈**      | Swift 5.9 · SwiftUI · AppKit · SQLite.swift 0.15.3 |
 | **最低 macOS** | 13.0                                               |
 | **构建工具**     | XcodeGen                                           |
-| **当前版本**     | v1.3（Build 2）                                    |
+| **当前版本**     | v1.3.1（Build 3）                                    |
 | **定位**       | 为重度使用 MiniMax M2.7 Token Plan 的开发者提供菜单栏配额感知与用量追踪   |
 
 

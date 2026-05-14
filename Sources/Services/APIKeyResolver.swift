@@ -109,6 +109,18 @@ enum APIKeyResolver {
             return apiKey
         }
 
+        // 扫描 mcp.servers.*.env.MINIMAX_API_KEY（OpenClaw 在该路径保存 Token Plan Key）
+        if let mcp = json["mcp"] as? [String: Any],
+           let servers = mcp["servers"] as? [String: Any] {
+            for (_, server) in servers {
+                guard let serverConfig = server as? [String: Any],
+                      let env = serverConfig["env"] as? [String: Any],
+                      let apiKey = env["MINIMAX_API_KEY"] as? String,
+                      !apiKey.isEmpty else { continue }
+                return apiKey
+            }
+        }
+
         return nil
     }
 }
